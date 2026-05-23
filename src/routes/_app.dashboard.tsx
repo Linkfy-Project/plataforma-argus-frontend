@@ -9,7 +9,7 @@ import {
 } from "recharts";
 import { PageHeader } from "@/components/argus/PageHeader";
 import { StatCard } from "@/components/argus/StatCard";
-import { LoadingState } from "@/components/argus/EmptyState";
+import { LoadingState, ErrorState } from "@/components/argus/EmptyState";
 import { dashboardService, obrasService, municipiosService } from "@/lib/api";
 import { fmtBRL, fmtNumber, fmtPct } from "@/lib/format";
 
@@ -32,7 +32,10 @@ function DashboardPage() {
   const municipios = useQuery({ queryKey: ["municipios"], queryFn: municipiosService.list });
 
   if (summary.isLoading || obras.isLoading) {
-    return <LoadingState />;
+    return <LoadingState rows={8} />;
+  }
+  if (summary.isError) {
+    return <ErrorState onRetry={() => summary.refetch()} />;
   }
   const s = summary.data!;
   const obrasData = obras.data ?? [];
