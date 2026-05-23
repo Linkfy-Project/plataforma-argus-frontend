@@ -22,7 +22,10 @@ const PAGE_SIZE = 10;
 const STATUSES: ObraStatus[] = ["Planejada", "Em andamento", "Concluída", "Atrasada", "Paralisada"];
 
 function ObrasPage() {
-  const { data, isLoading, isError } = useQuery({ queryKey: ["obras"], queryFn: obrasService.list });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["obras"],
+    queryFn: () => obrasService.list(),
+  });
   const [q, setQ] = useState("");
   const [mun, setMun] = useState<string>("todos");
   const [status, setStatus] = useState<string>("todos");
