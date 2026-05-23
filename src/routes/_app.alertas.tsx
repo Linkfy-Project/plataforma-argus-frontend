@@ -18,7 +18,10 @@ export const Route = createFileRoute("/_app/alertas")({
 const NIVEIS: AlertaNivel[] = ["Baixo", "Médio", "Alto", "Crítico"];
 
 function AlertasPage() {
-  const { data, isLoading } = useQuery({ queryKey: ["alertas"], queryFn: alertasService.list });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["alertas"],
+    queryFn: () => alertasService.list(),
+  });
   const [nivel, setNivel] = useState<string>("todos");
 
   const list = (data ?? []).filter((a) => nivel === "todos" || a.nivel === nivel);

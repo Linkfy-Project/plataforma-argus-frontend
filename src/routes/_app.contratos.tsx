@@ -16,7 +16,10 @@ export const Route = createFileRoute("/_app/contratos")({
 });
 
 function ContratosPage() {
-  const { data, isLoading } = useQuery({ queryKey: ["contratos"], queryFn: contratosService.list });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["contratos"],
+    queryFn: () => contratosService.list(),
+  });
   const [q, setQ] = useState("");
 
   const filtered = useMemo(() => {
