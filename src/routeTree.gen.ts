@@ -16,6 +16,7 @@ import { Route as AppRelatoriosRouteImport } from './routes/_app.relatorios'
 import { Route as AppObrasRouteImport } from './routes/_app.obras'
 import { Route as AppMunicipiosRouteImport } from './routes/_app.municipios'
 import { Route as AppMapaRouteImport } from './routes/_app.mapa'
+import { Route as AppMacaeRouteImport } from './routes/_app.macae'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppContratosRouteImport } from './routes/_app.contratos'
 import { Route as AppConfiguracoesRouteImport } from './routes/_app.configuracoes'
@@ -56,6 +57,11 @@ const AppMapaRoute = AppMapaRouteImport.update({
   path: '/mapa',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMacaeRoute = AppMacaeRouteImport.update({
+  id: '/macae',
+  path: '/macae',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof AppConfiguracoesRoute
   '/contratos': typeof AppContratosRoute
   '/dashboard': typeof AppDashboardRoute
+  '/macae': typeof AppMacaeRoute
   '/mapa': typeof AppMapaRoute
   '/municipios': typeof AppMunicipiosRoute
   '/obras': typeof AppObrasRouteWithChildren
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/configuracoes': typeof AppConfiguracoesRoute
   '/contratos': typeof AppContratosRoute
   '/dashboard': typeof AppDashboardRoute
+  '/macae': typeof AppMacaeRoute
   '/mapa': typeof AppMapaRoute
   '/municipios': typeof AppMunicipiosRoute
   '/obras': typeof AppObrasRouteWithChildren
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/_app/configuracoes': typeof AppConfiguracoesRoute
   '/_app/contratos': typeof AppContratosRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/macae': typeof AppMacaeRoute
   '/_app/mapa': typeof AppMapaRoute
   '/_app/municipios': typeof AppMunicipiosRoute
   '/_app/obras': typeof AppObrasRouteWithChildren
@@ -132,6 +141,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/contratos'
     | '/dashboard'
+    | '/macae'
     | '/mapa'
     | '/municipios'
     | '/obras'
@@ -145,6 +155,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/contratos'
     | '/dashboard'
+    | '/macae'
     | '/mapa'
     | '/municipios'
     | '/obras'
@@ -159,6 +170,7 @@ export interface FileRouteTypes {
     | '/_app/configuracoes'
     | '/_app/contratos'
     | '/_app/dashboard'
+    | '/_app/macae'
     | '/_app/mapa'
     | '/_app/municipios'
     | '/_app/obras'
@@ -223,6 +235,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMapaRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/macae': {
+      id: '/_app/macae'
+      path: '/macae'
+      fullPath: '/macae'
+      preLoaderRoute: typeof AppMacaeRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboard': {
       id: '/_app/dashboard'
       path: '/dashboard'
@@ -278,6 +297,7 @@ interface AppRouteChildren {
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
   AppContratosRoute: typeof AppContratosRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppMacaeRoute: typeof AppMacaeRoute
   AppMapaRoute: typeof AppMapaRoute
   AppMunicipiosRoute: typeof AppMunicipiosRoute
   AppObrasRoute: typeof AppObrasRouteWithChildren
@@ -289,6 +309,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppConfiguracoesRoute: AppConfiguracoesRoute,
   AppContratosRoute: AppContratosRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppMacaeRoute: AppMacaeRoute,
   AppMapaRoute: AppMapaRoute,
   AppMunicipiosRoute: AppMunicipiosRoute,
   AppObrasRoute: AppObrasRouteWithChildren,
@@ -305,3 +326,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
