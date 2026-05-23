@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/argus/PageHeader";
 import { AlertBadge } from "@/components/argus/AlertBadge";
-import { LoadingState, EmptyState } from "@/components/argus/EmptyState";
+import { LoadingState, EmptyState, ErrorState } from "@/components/argus/EmptyState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { alertasService } from "@/lib/api";
 import { fmtDate } from "@/lib/format";
@@ -41,8 +41,15 @@ function AlertasPage() {
           </Select>
         }
       />
-      {isLoading ? <LoadingState /> : list.length === 0 ? (
-        <EmptyState message="Nenhum alerta registrado." />
+      {isLoading ? (
+        <LoadingState />
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} />
+      ) : list.length === 0 ? (
+        <EmptyState
+          message="Nenhum alerta registrado."
+          hint="Quando o sistema detectar riscos, eles aparecerão aqui."
+        />
       ) : (
         <div className="space-y-3">
           {list.map((a) => (
