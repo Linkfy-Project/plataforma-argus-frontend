@@ -1,18 +1,34 @@
-import { Inbox } from "lucide-react";
+import { Inbox, AlertTriangle, RefreshCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-export function EmptyState({ message = "Nenhum dado encontrado." }: { message?: string }) {
+export function EmptyState({
+  message = "Nenhum dado encontrado.",
+  hint,
+}: {
+  message?: string;
+  hint?: string;
+}) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card/50 px-6 py-12 text-center">
-      <Inbox className="h-8 w-8 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">{message}</p>
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <Inbox className="h-5 w-5" />
+      </div>
+      <p className="text-sm font-medium text-foreground">{message}</p>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
 
-export function LoadingState({ message = "Carregando dados..." }: { message?: string }) {
+export function LoadingState({
+  message = "Carregando dados...",
+  rows = 5,
+}: {
+  message?: string;
+  rows?: number;
+}) {
   return (
-    <div className="space-y-3">
-      {Array.from({ length: 5 }).map((_, i) => (
+    <div className="space-y-3" role="status" aria-live="polite">
+      {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="h-12 animate-pulse rounded-md bg-muted/60" />
       ))}
       <p className="text-center text-xs text-muted-foreground">{message}</p>
@@ -20,10 +36,34 @@ export function LoadingState({ message = "Carregando dados..." }: { message?: st
   );
 }
 
-export function ErrorState({ message = "Ocorreu um erro ao carregar os dados. Tente novamente." }: { message?: string }) {
+export function ErrorState({
+  message = "Ocorreu um erro ao carregar os dados.",
+  onRetry,
+}: {
+  message?: string;
+  onRetry?: () => void;
+}) {
   return (
-    <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-8 text-center text-sm text-destructive">
-      {message}
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-10 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+        <AlertTriangle className="h-5 w-5" />
+      </div>
+      <p className="text-sm font-medium text-destructive">{message}</p>
+      {onRetry && (
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          <RefreshCcw className="mr-2 h-4 w-4" /> Tentar novamente
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export function CardsLoading({ count = 6 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="h-40 animate-pulse rounded-xl bg-muted/60" />
+      ))}
     </div>
   );
 }
