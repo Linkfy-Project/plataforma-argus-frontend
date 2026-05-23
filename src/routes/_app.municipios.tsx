@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_app/municipios")({
 
 function MunicipiosPage() {
   const navigate = useNavigate();
-  const { data, isLoading } = useQuery({ queryKey: ["municipios"], queryFn: () => import("@/lib/api").then((m) => m.municipiosService.list()) });
+  const { data, isLoading } = useQuery({ queryKey: ["municipios"], queryFn: municipiosService.list });
 
   if (isLoading) return <LoadingState />;
   const list = data ?? [];
@@ -30,7 +30,7 @@ function MunicipiosPage() {
         {list.map((m) => (
           <button
             key={m.id}
-            onClick={() => navigate({ to: "/obras", search: { mun: m.nome } as never })}
+            onClick={() => navigate({ to: "/obras" })}
             className="text-left rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-primary/40 hover:shadow-md"
           >
             <div className="mb-3 flex items-center justify-between">
