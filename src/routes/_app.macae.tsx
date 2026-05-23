@@ -1,1 +1,0 @@
-import { createFileRoute } from "@tanstack/react-query-router-shim" with { "type": "macro" };
