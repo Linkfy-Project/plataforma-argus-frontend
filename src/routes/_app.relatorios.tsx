@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BarChart3, Building2, FileSpreadsheet, FileText, ShieldAlert, Wallet } from "lucide-react";
+import {
+  BarChart3, Building2, FileSpreadsheet, FileText, ShieldAlert, Wallet, Download,
+} from "lucide-react";
 import { PageHeader } from "@/components/argus/PageHeader";
 import { Button } from "@/components/ui/button";
+import { exportsService } from "@/lib/api";
 
 export const Route = createFileRoute("/_app/relatorios")({
   head: () => ({ meta: [{ title: "Relatórios — Plataforma Argus" }] }),
@@ -19,7 +22,24 @@ const reports = [
 function RelatoriosPage() {
   return (
     <div>
-      <PageHeader title="Relatórios" description="Gere e exporte relatórios oficiais a partir dos dados monitorados." />
+      <PageHeader
+        title="Relatórios"
+        description="Gere e exporte relatórios oficiais a partir dos dados monitorados."
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button asChild size="sm" className="bg-primary hover:bg-primary/90">
+              <a href={exportsService.worksXlsxUrl()} target="_blank" rel="noreferrer">
+                <Download className="mr-1 h-4 w-4" /> Exportar todas (XLSX)
+              </a>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <a href={exportsService.worksCsvUrl()} target="_blank" rel="noreferrer">
+                <FileSpreadsheet className="mr-1 h-4 w-4" /> Exportar todas (CSV)
+              </a>
+            </Button>
+          </div>
+        }
+      />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {reports.map((r) => (
           <div key={r.title} className="flex flex-col rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -29,13 +49,27 @@ function RelatoriosPage() {
             <h3 className="text-base font-semibold text-foreground">{r.title}</h3>
             <p className="mt-1 text-sm text-muted-foreground">{r.desc}</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button size="sm" className="bg-primary hover:bg-primary/90">Gerar relatório</Button>
-              <Button size="sm" variant="outline"><FileSpreadsheet className="mr-1 h-4 w-4" /> Exportar CSV</Button>
-              <Button size="sm" variant="outline"><FileText className="mr-1 h-4 w-4" /> Exportar PDF</Button>
+              <Button asChild size="sm" className="bg-primary hover:bg-primary/90">
+                <a href={exportsService.worksXlsxUrl()} target="_blank" rel="noreferrer">
+                  Gerar relatório (XLSX)
+                </a>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <a href={exportsService.worksCsvUrl()} target="_blank" rel="noreferrer">
+                  <FileSpreadsheet className="mr-1 h-4 w-4" /> Exportar CSV
+                </a>
+              </Button>
             </div>
           </div>
         ))}
       </div>
+
+      <p className="mt-6 text-xs text-muted-foreground">
+        Os relatórios são gerados diretamente pelo backend Argus a partir dos endpoints oficiais
+        <code className="mx-1 rounded bg-muted px-1.5 py-0.5 font-mono">/api/v1/exports/works.csv</code>
+        e
+        <code className="mx-1 rounded bg-muted px-1.5 py-0.5 font-mono">/api/v1/exports/works.xlsx</code>.
+      </p>
     </div>
   );
 }

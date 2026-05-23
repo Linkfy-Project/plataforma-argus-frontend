@@ -1,4 +1,5 @@
-import { Inbox, AlertTriangle, RefreshCcw } from "lucide-react";
+import { Inbox, AlertTriangle, RefreshCcw, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 export function EmptyState({
@@ -22,16 +23,28 @@ export function EmptyState({
 export function LoadingState({
   message = "Carregando dados...",
   rows = 5,
+  coldStartAfterMs = 3500,
 }: {
   message?: string;
   rows?: number;
+  coldStartAfterMs?: number;
 }) {
+  const [coldStart, setColdStart] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setColdStart(true), coldStartAfterMs);
+    return () => clearTimeout(t);
+  }, [coldStartAfterMs]);
   return (
     <div className="space-y-3" role="status" aria-live="polite">
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="h-12 animate-pulse rounded-md bg-muted/60" />
       ))}
-      <p className="text-center text-xs text-muted-foreground">{message}</p>
+      <p className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        {coldStart
+          ? "Conectando ao servidor da Plataforma Argus..."
+          : message}
+      </p>
     </div>
   );
 }

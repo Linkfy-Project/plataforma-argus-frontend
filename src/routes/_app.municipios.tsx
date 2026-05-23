@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Building2 } from "lucide-react";
 import { PageHeader } from "@/components/argus/PageHeader";
-import { LoadingState, EmptyState } from "@/components/argus/EmptyState";
+import { LoadingState, EmptyState, ErrorState } from "@/components/argus/EmptyState";
 import { Progress } from "@/components/ui/progress";
 import { municipiosService } from "@/lib/api";
 import { fmtBRL, fmtNumber } from "@/lib/format";
@@ -14,9 +14,13 @@ export const Route = createFileRoute("/_app/municipios")({
 
 function MunicipiosPage() {
   const navigate = useNavigate();
-  const { data, isLoading } = useQuery({ queryKey: ["municipios"], queryFn: municipiosService.list });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["municipios"],
+    queryFn: municipiosService.list,
+  });
 
   if (isLoading) return <LoadingState />;
+  if (isError) return <ErrorState onRetry={() => refetch()} />;
   const list = data ?? [];
   if (list.length === 0) return <EmptyState message="Nenhum município encontrado." />;
 

@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Building, Calendar, FileText, MapPin, Wallet } from "lucide-react";
+import { ArrowLeft, Building, Calendar, FileText, MapPin, Wallet, Gauge, ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/argus/PageHeader";
 import { StatusBadge } from "@/components/argus/StatusBadge";
 import { AlertBadge } from "@/components/argus/AlertBadge";
-import { LoadingState, EmptyState } from "@/components/argus/EmptyState";
+import { LoadingState, EmptyState, ErrorState } from "@/components/argus/EmptyState";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { obrasService, alertasService } from "@/lib/api";
@@ -20,9 +20,16 @@ function ObraDetail() {
   const alertas = useQuery({ queryKey: ["alertas"], queryFn: () => alertasService.list() });
 
   if (obra.isLoading) return <LoadingState />;
+  if (obra.isError) return <ErrorState onRetry={() => obra.refetch()} />;
   if (!obra.data) return <EmptyState message="Obra não encontrada." />;
   const o = obra.data;
   const related = (alertas.data ?? []).filter((a) => a.obra_id === o.id);
+
+  const riscos = [
+    { label: "Atraso", value: o.risco_atraso },
+    { label: "Custo", value: o.risco_custo },
+    { label: "Retrabalho", value: o.risco_retrabalho },
+  ].filter((r) => typeof r.value === "number");
 
   const info: { label: string; value: string; icon: typeof MapPin }[] = [
     { label: "Município", value: o.municipio, icon: MapPin },
@@ -111,6 +118,38 @@ function ObraDetail() {
             <Progress value={o.percentual_execucao} className="mt-3 h-2" />
             <p className="mt-2 text-xs text-muted-foreground">Percentual físico-financeiro executado.</p>
           </div>
+
+          {(typeof o.eficiencia === "number" || riscos.length > 0) && (
+            <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+              <div className="mb-3 flex items-center gap-2">
+                <Gauge className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold text-foreground">Indicadores preditivos</h3>
+              </div>
+              {typeof o.eficiencia === "number" && (
+                <>
+                  <p className="text-xs text-muted-foreground">Score de eficiência</p>
+                  <p className="text-2xl font-semibold text-foreground">{Math.round(o.eficiencia)}%</p>
+                  <Progress value={o.eficiencia} className="mt-2 h-2" />
+                </>
+              )}
+              {riscos.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <ShieldAlert className="h-3.5 w-3.5" /> Probabilidade de risco
+                  </p>
+                  {riscos.map((r) => (
+                    <div key={r.label}>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{r.label}</span>
+                        <span className="font-medium text-foreground">{Math.round((r.value as number) * 100)}%</span>
+                      </div>
+                      <Progress value={(r.value as number) * 100} className="h-1.5" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h3 className="mb-3 text-sm font-semibold text-foreground">Alertas relacionados</h3>
