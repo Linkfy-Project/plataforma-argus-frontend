@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_app/obras/$id")({
 function ObraDetail() {
   const { id } = Route.useParams();
   const obra = useQuery({ queryKey: ["obra", id], queryFn: () => obrasService.get(id) });
-  const alertas = useQuery({ queryKey: ["alertas"], queryFn: alertasService.list });
+  const alertas = useQuery({ queryKey: ["alertas"], queryFn: () => alertasService.list() });
 
   if (obra.isLoading) return <LoadingState />;
   if (!obra.data) return <EmptyState message="Obra não encontrada." />;

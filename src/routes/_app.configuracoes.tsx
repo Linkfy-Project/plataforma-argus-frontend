@@ -49,7 +49,7 @@ function ConfigPage() {
               <Input defaultValue="Gestor de Obras" className="mt-1" />
             </div>
           </div>
-          <Button className="mt-4 bg-primary hover:bg-[#1E5F9E]">Salvar alterações</Button>
+          <Button className="mt-4 bg-primary hover:bg-primary/90">Salvar alterações</Button>
         </Section>
 
         <Section icon={Settings2} title="Preferências do sistema">

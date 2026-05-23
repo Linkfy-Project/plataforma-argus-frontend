@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Search, Eye } from "lucide-react";
 import { PageHeader } from "@/components/argus/PageHeader";
 import { ContratoStatusBadge } from "@/components/argus/StatusBadge";
-import { LoadingState, EmptyState } from "@/components/argus/EmptyState";
+import { LoadingState, EmptyState, ErrorState } from "@/components/argus/EmptyState";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { contratosService } from "@/lib/api";
@@ -16,7 +16,10 @@ export const Route = createFileRoute("/_app/contratos")({
 });
 
 function ContratosPage() {
-  const { data, isLoading } = useQuery({ queryKey: ["contratos"], queryFn: contratosService.list });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["contratos"],
+    queryFn: () => contratosService.list(),
+  });
   const [q, setQ] = useState("");
 
   const filtered = useMemo(() => {
@@ -38,19 +41,21 @@ function ContratosPage() {
       <div className="rounded-xl border border-border bg-card shadow-sm">
         {isLoading ? (
           <div className="p-6"><LoadingState /></div>
+        ) : isError ? (
+          <div className="p-6"><ErrorState onRetry={() => refetch()} /></div>
         ) : filtered.length === 0 ? (
           <div className="p-6"><EmptyState message="Nenhum contrato encontrado." /></div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="max-h-[calc(100vh-22rem)] overflow-auto">
             <table className="w-full text-sm">
-              <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="sticky top-0 z-10 border-b border-border bg-muted/80 text-left text-xs uppercase tracking-wide text-muted-foreground backdrop-blur">
                 <tr>
                   <th className="px-4 py-3 font-medium">Nº contrato</th>
                   <th className="px-4 py-3 font-medium">Obra</th>
                   <th className="px-4 py-3 font-medium">Município</th>
                   <th className="px-4 py-3 font-medium">Empresa</th>
-                  <th className="px-4 py-3 font-medium">Valor contratado</th>
-                  <th className="px-4 py-3 font-medium">Valor executado</th>
+                  <th className="px-4 py-3 font-medium text-right">Valor contratado</th>
+                  <th className="px-4 py-3 font-medium text-right">Valor executado</th>
                   <th className="px-4 py-3 font-medium">Assinatura</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium text-right">Ações</th>
@@ -58,13 +63,13 @@ function ContratosPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {filtered.map((c) => (
-                  <tr key={c.id} className="hover:bg-muted/30">
+                  <tr key={c.id} className="hover:bg-primary/5">
                     <td className="px-4 py-3 font-medium text-foreground">{c.numero}</td>
                     <td className="px-4 py-3 text-foreground">{c.obra_nome}</td>
                     <td className="px-4 py-3 text-muted-foreground">{c.municipio}</td>
                     <td className="px-4 py-3 text-muted-foreground">{c.empresa}</td>
-                    <td className="px-4 py-3">{fmtBRL(c.valor_contratado)}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{fmtBRL(c.valor_executado)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{fmtBRL(c.valor_contratado)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{fmtBRL(c.valor_executado)}</td>
                     <td className="px-4 py-3 text-muted-foreground">{fmtDate(c.data_assinatura)}</td>
                     <td className="px-4 py-3"><ContratoStatusBadge status={c.status} /></td>
                     <td className="px-4 py-3 text-right">

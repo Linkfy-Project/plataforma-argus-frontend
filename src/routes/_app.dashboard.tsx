@@ -28,7 +28,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 function DashboardPage() {
   const summary = useQuery({ queryKey: ["summary"], queryFn: dashboardService.getSummary });
-  const obras = useQuery({ queryKey: ["obras"], queryFn: obrasService.list });
+  const obras = useQuery({ queryKey: ["obras"], queryFn: () => obrasService.list() });
   const municipios = useQuery({ queryKey: ["municipios"], queryFn: municipiosService.list });
 
   if (summary.isLoading || obras.isLoading) {

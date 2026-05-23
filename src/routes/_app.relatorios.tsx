@@ -29,7 +29,7 @@ function RelatoriosPage() {
             <h3 className="text-base font-semibold text-foreground">{r.title}</h3>
             <p className="mt-1 text-sm text-muted-foreground">{r.desc}</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button size="sm" className="bg-primary hover:bg-[#1E5F9E]">Gerar relatório</Button>
+              <Button size="sm" className="bg-primary hover:bg-primary/90">Gerar relatório</Button>
               <Button size="sm" variant="outline"><FileSpreadsheet className="mr-1 h-4 w-4" /> Exportar CSV</Button>
               <Button size="sm" variant="outline"><FileText className="mr-1 h-4 w-4" /> Exportar PDF</Button>
             </div>

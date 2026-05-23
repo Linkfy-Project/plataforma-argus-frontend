@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Eye, Search } from "lucide-react";
@@ -18,16 +18,21 @@ export const Route = createFileRoute("/_app/obras")({
   component: ObrasPage,
 });
 
-const PAGE_SIZE = 10;
 const STATUSES: ObraStatus[] = ["Planejada", "Em andamento", "Concluída", "Atrasada", "Paralisada"];
+const PAGE_SIZES = [10, 25, 50];
 
 function ObrasPage() {
-  const { data, isLoading, isError } = useQuery({ queryKey: ["obras"], queryFn: obrasService.list });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["obras"],
+    queryFn: () => obrasService.list(),
+  });
+  const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [mun, setMun] = useState<string>("todos");
   const [status, setStatus] = useState<string>("todos");
   const [faixa, setFaixa] = useState<string>("todas");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const municipios = useMemo(() => Array.from(new Set((data ?? []).map((o) => o.municipio))).sort(), [data]);
 
@@ -44,8 +49,9 @@ function ObrasPage() {
     });
   }, [data, q, mun, status, faixa]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageData = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageData = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
     <div>
@@ -86,19 +92,24 @@ function ObrasPage() {
         {isLoading ? (
           <div className="p-6"><LoadingState /></div>
         ) : isError ? (
-          <div className="p-6"><ErrorState /></div>
+          <div className="p-6"><ErrorState onRetry={() => refetch()} /></div>
         ) : filtered.length === 0 ? (
-          <div className="p-6"><EmptyState message="Nenhuma obra encontrada." /></div>
+          <div className="p-6">
+            <EmptyState
+              message="Nenhuma obra encontrada."
+              hint="Ajuste os filtros ou limpe a busca para ver mais resultados."
+            />
+          </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="max-h-[calc(100vh-22rem)] overflow-auto">
             <table className="w-full text-sm">
-              <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="sticky top-0 z-10 border-b border-border bg-muted/80 text-left text-xs uppercase tracking-wide text-muted-foreground backdrop-blur">
                 <tr>
                   <th className="px-4 py-3 font-medium">Nome da obra</th>
                   <th className="px-4 py-3 font-medium">Município</th>
                   <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Valor contratado</th>
-                  <th className="px-4 py-3 font-medium">Valor executado</th>
+                  <th className="px-4 py-3 font-medium text-right">Valor contratado</th>
+                  <th className="px-4 py-3 font-medium text-right">Valor executado</th>
                   <th className="px-4 py-3 font-medium w-40">Execução</th>
                   <th className="px-4 py-3 font-medium">Início</th>
                   <th className="px-4 py-3 font-medium">Previsão</th>
@@ -107,24 +118,28 @@ function ObrasPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {pageData.map((o) => (
-                  <tr key={o.id} className="hover:bg-muted/30">
+                  <tr
+                    key={o.id}
+                    onClick={() => navigate({ to: "/obras/$id", params: { id: o.id } })}
+                    className="cursor-pointer transition-colors hover:bg-primary/5"
+                  >
                     <td className="px-4 py-3 font-medium text-foreground">{o.nome}</td>
                     <td className="px-4 py-3 text-muted-foreground">{o.municipio}</td>
                     <td className="px-4 py-3"><StatusBadge status={o.status} /></td>
-                    <td className="px-4 py-3 text-foreground">{fmtBRL(o.valor_contratado)}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{fmtBRL(o.valor_executado)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-foreground">{fmtBRL(o.valor_contratado)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{fmtBRL(o.valor_executado)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Progress value={o.percentual_execucao} className="h-2" />
-                        <span className="w-10 text-right text-xs text-muted-foreground">{fmtPct(o.percentual_execucao)}</span>
+                        <span className="w-10 text-right tabular-nums text-xs text-muted-foreground">{fmtPct(o.percentual_execucao)}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{fmtDate(o.data_inicio)}</td>
                     <td className="px-4 py-3 text-muted-foreground">{fmtDate(o.data_fim_prevista)}</td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <Button asChild variant="ghost" size="sm">
                         <Link to="/obras/$id" params={{ id: o.id }}>
-                          <Eye className="mr-1 h-4 w-4" /> Ver detalhes
+                          <Eye className="mr-1 h-4 w-4" /> Detalhes
                         </Link>
                       </Button>
                     </td>
@@ -136,16 +151,24 @@ function ObrasPage() {
         )}
 
         {filtered.length > 0 && (
-          <div className="flex items-center justify-between border-t border-border px-4 py-3 text-sm text-muted-foreground">
-            <span>
-              Exibindo {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length}
-            </span>
+          <div className="flex flex-col items-start gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <span>
+                Exibindo {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filtered.length)} de {filtered.length}
+              </span>
+              <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                <SelectTrigger className="h-8 w-[110px] bg-card text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZES.map((n) => <SelectItem key={n} value={String(n)}>{n} por página</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+              <Button variant="outline" size="sm" disabled={safePage === 1} onClick={() => setPage((p) => p - 1)}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span>Página {page} de {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>
+              <span className="tabular-nums">Página {safePage} de {totalPages}</span>
+              <Button variant="outline" size="sm" disabled={safePage === totalPages} onClick={() => setPage((p) => p + 1)}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
