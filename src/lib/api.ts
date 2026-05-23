@@ -1,3 +1,12 @@
+export type GeoFeatureCollection = {
+  type: "FeatureCollection";
+  features: Array<{
+    type: "Feature";
+    geometry: { type: string; coordinates: unknown };
+    properties: Record<string, unknown>;
+  }>;
+};
+
 import axios, { AxiosError } from "axios";
 import {
   mockObras,
@@ -309,10 +318,10 @@ export const analyticsService = {
       { best: [], worst: [] },
     ),
   mapGeoJson: () =>
-    withFallback<GeoJSON.FeatureCollection>(
+    withFallback<GeoFeatureCollection>(
       async () =>
-        (await api.get<GeoJSON.FeatureCollection>("/analytics/map/geojson")).data,
-      { type: "FeatureCollection", features: [] } as GeoJSON.FeatureCollection,
+        (await api.get<GeoFeatureCollection>("/analytics/map/geojson")).data,
+      { type: "FeatureCollection", features: [] },
     ),
 };
 
