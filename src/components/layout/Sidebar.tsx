@@ -1,12 +1,15 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, HardHat, Building2, FileText, AlertTriangle, BarChart3, Settings, Shield,
+  LayoutDashboard, HardHat, Building2, FileText, AlertTriangle, BarChart3,
+  Settings, Shield, Map, MapPinned,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const NAV_ITEMS = [
   { to: "/dashboard", label: "Painel", icon: LayoutDashboard },
   { to: "/obras", label: "Obras", icon: HardHat },
+  { to: "/mapa", label: "Mapa territorial", icon: Map },
+  { to: "/macae", label: "Análise — Macaé", icon: MapPinned },
   { to: "/municipios", label: "Municípios", icon: Building2 },
   { to: "/contratos", label: "Contratos", icon: FileText },
   { to: "/alertas", label: "Alertas", icon: AlertTriangle },
