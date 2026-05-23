@@ -38,7 +38,7 @@ function LoginPage() {
             <Input id="senha" type="password" placeholder="••••••••"
               className="border-white/10 bg-white/5 text-white placeholder:text-white/40" />
           </div>
-          <Button type="submit" className="w-full bg-primary hover:bg-[#1E5F9E]">Entrar</Button>
+          <Button type="submit" className="w-full bg-primary hover:bg-primary/90">Entrar</Button>
           <div className="text-center">
             <a href="#" className="text-xs text-[color:var(--sidebar-accent-hl)] hover:underline">
               Esqueci minha senha
