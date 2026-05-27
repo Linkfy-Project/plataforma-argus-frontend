@@ -1,88 +1,126 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
-  HardHat, Activity, CheckCircle2, OctagonAlert, Wallet, Building2, AlertTriangle, Gauge,
+  HardHat, Activity, Wallet, AlertTriangle, Gauge, MapPin, ArrowRight, Trophy, TrendingDown, BookOpen,
 } from "lucide-react";
 import {
-  Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart,
+  Bar, BarChart, CartesianGrid, Cell, Legend,
   Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { PageHeader } from "@/components/argus/PageHeader";
 import { StatCard } from "@/components/argus/StatCard";
 import { LoadingState, ErrorState } from "@/components/argus/EmptyState";
-import { dashboardService, obrasService, municipiosService } from "@/lib/api";
-import { fmtBRL, fmtNumber, fmtPct } from "@/lib/format";
+import { ScoreBadge } from "@/components/argus/ScoreBadge";
+import { analyticsService, worksService, etlService } from "@/lib/api";
+import { fmtBRL, fmtNumber, fmtDate } from "@/lib/format";
+import { ARGUS_PILLARS, getRiskLevel, getScoreHex } from "@/lib/score";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_app/dashboard")({
-  head: () => ({ meta: [{ title: "Painel — Plataforma Argus" }] }),
+  head: () => ({ meta: [{ title: "Painel — ARGUS Macaé-RJ" }] }),
   component: DashboardPage,
 });
 
-const STATUS_COLORS: Record<string, string> = {
-  "Em andamento": "#287BBE",
-  "Concluída": "#22C55E",
-  "Planejada": "#94A3B8",
-  "Atrasada": "#F59E0B",
-  "Paralisada": "#DC2626",
+const RISK_COLORS: Record<string, string> = {
+  "Eficiente": "#22C55E",
+  "Atenção": "#F59E0B",
+  "Alto risco": "#F97316",
+  "Crítico": "#DC2626",
 };
 
-function DashboardPage() {
-  const summary = useQuery({ queryKey: ["summary"], queryFn: dashboardService.getSummary });
-  const obras = useQuery({ queryKey: ["obras"], queryFn: () => obrasService.list() });
-  const municipios = useQuery({ queryKey: ["municipios"], queryFn: municipiosService.list });
+interface SyncStatus {
+  scheduled?: boolean;
+  next_run_time?: string;
+  time_left?: string;
+}
 
-  if (summary.isLoading || obras.isLoading) {
+function DashboardPage() {
+  const summary = useQuery({ queryKey: ["analytics", "summary"], queryFn: () => analyticsService.summary() });
+  const works = useQuery({ queryKey: ["works", "all"], queryFn: () => worksService.list({ limit: 500 }) });
+  const rankings = useQuery({ queryKey: ["analytics", "rankings", 5], queryFn: () => analyticsService.rankings(5) });
+  const etl = useQuery<SyncStatus>({ queryKey: ["etl", "status"], queryFn: () => etlService.syncStatus() });
+
+  if (summary.isLoading || works.isLoading) {
     return <LoadingState rows={8} />;
   }
   if (summary.isError) {
     return <ErrorState onRetry={() => summary.refetch()} />;
   }
   const s = summary.data!;
-  const obrasData = obras.data ?? [];
-  const munisData = (municipios.data ?? []).slice().sort((a, b) => b.total_obras - a.total_obras);
+  const ws = works.data ?? [];
+  const valorTotal = ws.reduce((acc, w) => acc + (w.contract_value ?? 0), 0);
+  const valorPago = ws.reduce((acc, w) => acc + (w.paid_value ?? w.settled_value ?? 0), 0);
 
-  const statusData = ["Planejada", "Em andamento", "Concluída", "Atrasada", "Paralisada"].map((st) => ({
-    status: st,
-    total: obrasData.filter((o) => o.status === st).length,
+  const riscoBuckets = ["Eficiente", "Atenção", "Alto risco", "Crítico"].map((label) => ({
+    label,
+    total: ws.filter((w) => getRiskLevel(w.efficiency_score) === label).length,
   }));
 
-  const munisChart = munisData.slice(0, 6).map((m) => ({ name: m.nome, value: m.total_obras }));
-  const palette = ["#287BBE", "#38A5DB", "#06162F", "#22C55E", "#F59E0B", "#64748B"];
+  const scoreDist = [
+    { faixa: "0–39", total: ws.filter((w) => (w.efficiency_score ?? 0) < 40).length },
+    { faixa: "40–59", total: ws.filter((w) => (w.efficiency_score ?? 0) >= 40 && (w.efficiency_score ?? 0) < 60).length },
+    { faixa: "60–79", total: ws.filter((w) => (w.efficiency_score ?? 0) >= 60 && (w.efficiency_score ?? 0) < 80).length },
+    { faixa: "80–100", total: ws.filter((w) => (w.efficiency_score ?? 0) >= 80).length },
+  ];
 
-  const evolucao = Array.from({ length: 6 }).map((_, i) => ({
-    mes: ["Jul", "Ago", "Set", "Out", "Nov", "Dez"][i],
-    contratado: Math.round((s.valor_total_contratado / 6) * (0.8 + i * 0.05)),
-    executado: Math.round((s.valor_total_contratado / 6) * (0.4 + i * 0.07)),
-  }));
+  const contratadoTop = Object.entries(
+    ws.reduce<Record<string, number>>((acc, w) => {
+      const name = w.contractor_name?.trim();
+      if (!name) return acc;
+      acc[name] = (acc[name] ?? 0) + 1;
+      return acc;
+    }, {}),
+  )
+    .map(([name, total]) => ({ name, total }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 6);
+
+  const etlData = etl.data ?? {};
 
   return (
     <div>
-      <PageHeader title="Painel Geral" description="Visão consolidada das obras públicas monitoradas no estado do Rio de Janeiro." />
+      <PageHeader
+        title="Painel Executivo ARGUS"
+        description="Inteligência analítica de obras públicas — recorte territorial: Macaé-RJ."
+        actions={
+          <div className="hidden items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground md:flex">
+            <MapPin className="h-3.5 w-3.5 text-primary" />
+            Foco: <strong className="text-foreground">Macaé-RJ</strong> · Hackathon Duopen
+          </div>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total de obras" value={fmtNumber(s.total_obras)} icon={HardHat} helper="Cadastradas na plataforma" />
-        <StatCard label="Obras em andamento" value={fmtNumber(s.obras_em_andamento)} icon={Activity} tone="primary" helper="Execução ativa" />
-        <StatCard label="Obras concluídas" value={fmtNumber(s.obras_concluidas)} icon={CheckCircle2} tone="success" helper="Entregues à população" />
-        <StatCard label="Obras paralisadas" value={fmtNumber(s.obras_paralisadas)} icon={OctagonAlert} tone="danger" helper="Requerem ação" />
-        <StatCard label="Valor total contratado" value={fmtBRL(s.valor_total_contratado)} icon={Wallet} tone="accent" helper="Soma dos contratos vigentes" />
-        <StatCard label="Municípios monitorados" value={fmtNumber(s.municipios_monitorados)} icon={Building2} tone="primary" helper="Cobertura no estado" />
-        <StatCard label="Alertas críticos" value={fmtNumber(s.alertas_criticos)} icon={AlertTriangle} tone="warning" helper="Risco alto ou crítico" />
-        <StatCard label="Execução média" value={fmtPct(s.percentual_medio_execucao)} icon={Gauge} tone="success" helper="Média ponderada" />
+        <StatCard label="Obras monitoradas" value={fmtNumber(s.total_works)} icon={HardHat} tone="primary" helper="Contratos sob análise" />
+        <StatCard label="Score ARGUS médio" value={`${Math.round(s.average_efficiency_score)} / 100`} icon={Gauge} tone="success" helper="Eficiência composta" />
+        <StatCard label="Alertas críticos" value={fmtNumber(s.critical_alerts)} icon={AlertTriangle} tone="danger" helper="Risco alto detectado" />
+        <StatCard label="Obras atrasadas" value={fmtNumber(s.delayed_works)} icon={Activity} tone="warning" helper="Acima da tolerância de 90 dias" />
+        <StatCard label="Valor contratado total" value={fmtBRL(valorTotal)} icon={Wallet} tone="accent" helper="Somatório dos contratos" />
+        <StatCard label="Valor liquidado/pago" value={fmtBRL(valorPago)} icon={Wallet} tone="primary" helper="Execução financeira" />
+        <StatCard label="Próxima atualização" value={etlData.next_run_time ? fmtDate(etlData.next_run_time) : "—"} icon={Activity} helper={etlData.time_left ?? "ETL a cada 15 dias"} />
+        <StatCard label="Pipeline ETL" value={etlData.scheduled ? "Ativo" : "—"} icon={Activity} tone={etlData.scheduled ? "success" : "warning"} helper="Sincronização automática" />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
-          <h3 className="mb-4 text-sm font-semibold text-foreground">Obras por status</h3>
-          <div className="h-72">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Distribuição por nível de risco ARGUS</h3>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/obras"><ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
+            </Button>
+          </div>
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={statusData}>
+              <BarChart data={riscoBuckets}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                <XAxis dataKey="status" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
                 <Tooltip />
                 <Bar dataKey="total" radius={[6, 6, 0, 0]}>
-                  {statusData.map((d) => (
-                    <Cell key={d.status} fill={STATUS_COLORS[d.status]} />
+                  {riscoBuckets.map((d) => (
+                    <Cell key={d.label} fill={RISK_COLORS[d.label]} />
                   ))}
                 </Bar>
               </BarChart>
@@ -91,21 +129,89 @@ function DashboardPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold text-foreground">Distribuição por município</h3>
-          <div className="h-72">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">Faixa de score ARGUS</h3>
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={munisChart} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={2}>
-                  {munisChart.map((_, i) => (
-                    <Cell key={i} fill={palette[i % palette.length]} />
+                <Pie data={scoreDist} dataKey="total" nameKey="faixa" innerRadius={45} outerRadius={85} paddingAngle={2}>
+                  {scoreDist.map((d) => (
+                    <Cell key={d.faixa} fill={getScoreHex(parseInt(d.faixa))} />
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Legend wrapperStyle={{ fontSize: 10 }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
+      </div>
+
+      <div className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Composição do Índice ARGUS</h3>
+          </div>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/metodologia">Ver metodologia completa <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+          {ARGUS_PILLARS.map((p) => (
+            <div key={p.key} className="rounded-lg border border-border bg-background/50 p-3">
+              <p className="text-xs font-medium text-muted-foreground">{p.label}</p>
+              <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">{Math.round(p.weight * 100)}%</p>
+              <Progress value={p.weight * 100} className="mt-2 h-1.5" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+            <TrendingDown className="h-4 w-4 text-destructive" /> Obras mais críticas
+          </div>
+          {!rankings.data?.worst?.length ? (
+            <p className="text-sm text-muted-foreground">Sem ranking disponível.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {rankings.data.worst.slice(0, 5).map((w) => (
+                <li key={w.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <Link to="/obras/$id" params={{ id: String(w.id) }} className="min-w-0 flex-1 truncate font-medium text-foreground hover:text-primary">
+                    {w.object_description}
+                  </Link>
+                  <ScoreBadge score={w.efficiency_score ?? 0} showLabel={false} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Trophy className="h-4 w-4 text-[color:var(--success)]" /> Construtoras mais recorrentes
+          </div>
+          {contratadoTop.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Dados insuficientes.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {contratadoTop.map((c, i) => (
+                <li key={c.name} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">{i + 1}</span>
+                    <span className="truncate font-medium text-foreground">{c.name}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{c.total} contratos</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
           <h3 className="mb-4 text-sm font-semibold text-foreground">Evolução dos valores (últimos meses)</h3>
