@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, HardHat, Building2, FileText, AlertTriangle, BarChart3,
-  Settings, Shield, Map, MapPinned,
+  Settings, Shield, Map, MapPinned, BookOpen, Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -9,10 +9,12 @@ export const NAV_ITEMS = [
   { to: "/dashboard", label: "Painel", icon: LayoutDashboard },
   { to: "/obras", label: "Obras", icon: HardHat },
   { to: "/mapa", label: "Mapa territorial", icon: Map },
-  { to: "/macae", label: "Análise — Macaé", icon: MapPinned },
+  { to: "/macae", label: "Análise Macaé-RJ", icon: MapPinned },
+  { to: "/alertas", label: "Alertas", icon: AlertTriangle },
+  { to: "/metodologia", label: "Metodologia ARGUS", icon: BookOpen },
+  { to: "/etl", label: "ETL / Dados", icon: Database },
   { to: "/municipios", label: "Municípios", icon: Building2 },
   { to: "/contratos", label: "Contratos", icon: FileText },
-  { to: "/alertas", label: "Alertas", icon: AlertTriangle },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
@@ -25,7 +27,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         <Shield className="h-6 w-6 text-[color:var(--sidebar-accent-hl)]" />
         <div>
           <p className="text-lg font-bold tracking-wider text-[color:var(--sidebar-accent-hl)]">ARGUS</p>
-          <p className="text-[10px] uppercase tracking-widest text-white/50">Obras Públicas</p>
+          <p className="text-[10px] uppercase tracking-widest text-white/50">Obras Públicas · Macaé-RJ</p>
         </div>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
