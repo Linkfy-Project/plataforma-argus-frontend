@@ -13,8 +13,9 @@ import { StatCard } from "@/components/argus/StatCard";
 import { LoadingState, ErrorState } from "@/components/argus/EmptyState";
 import { ScoreBadge } from "@/components/argus/ScoreBadge";
 import { analyticsService, worksService, etlService } from "@/lib/api";
-import { fmtBRL, fmtNumber, fmtDate } from "@/lib/format";
+import { fmtBRL, fmtNumber, formatDateBR } from "@/lib/format";
 import { ARGUS_PILLARS, getRiskLevel, getScoreHex } from "@/lib/score";
+import type { SyncStatus } from "@/types";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 
@@ -24,23 +25,30 @@ export const Route = createFileRoute("/_app/dashboard")({
 });
 
 const RISK_COLORS: Record<string, string> = {
-  "Eficiente": "#22C55E",
+  "Baixo": "#22C55E",
   "Atenção": "#F59E0B",
-  "Alto risco": "#F97316",
+  "Alto": "#F97316",
   "Crítico": "#DC2626",
+  "Indefinido": "#94A3B8",
 };
 
-interface SyncStatus {
-  scheduled?: boolean;
-  next_run_time?: string;
-  time_left?: string;
-}
-
 function DashboardPage() {
-  const summary = useQuery({ queryKey: ["analytics", "summary"], queryFn: () => analyticsService.summary() });
-  const works = useQuery({ queryKey: ["works", "all"], queryFn: () => worksService.list({ limit: 500 }) });
-  const rankings = useQuery({ queryKey: ["analytics", "rankings", 5], queryFn: () => analyticsService.rankings(5) });
-  const etl = useQuery<SyncStatus>({ queryKey: ["etl", "status"], queryFn: () => etlService.syncStatus() });
+  const summary = useQuery({
+    queryKey: ["analytics", "summary", { municipio: "Macae" }],
+    queryFn: () => analyticsService.summary({ municipio: "Macae" }),
+  });
+  const works = useQuery({
+    queryKey: ["works", { municipio: "Macae", limit: 500 }],
+    queryFn: () => worksService.list({ municipio: "Macae", limit: 500 }),
+  });
+  const rankings = useQuery({
+    queryKey: ["analytics", "rankings", 5],
+    queryFn: () => analyticsService.rankings(5),
+  });
+  const etl = useQuery<SyncStatus>({
+    queryKey: ["etl", "sync-status"],
+    queryFn: () => etlService.syncStatus(),
+  });
 
   if (summary.isLoading || works.isLoading) {
     return <LoadingState rows={8} />;
@@ -53,7 +61,7 @@ function DashboardPage() {
   const valorTotal = ws.reduce((acc, w) => acc + (w.contract_value ?? 0), 0);
   const valorPago = ws.reduce((acc, w) => acc + (w.paid_value ?? w.settled_value ?? 0), 0);
 
-  const riscoBuckets = ["Eficiente", "Atenção", "Alto risco", "Crítico"].map((label) => ({
+  const riscoBuckets = ["Baixo", "Atenção", "Alto", "Crítico"].map((label) => ({
     label,
     total: ws.filter((w) => getRiskLevel(w.efficiency_score) === label).length,
   }));
@@ -82,8 +90,8 @@ function DashboardPage() {
   return (
     <div>
       <PageHeader
-        title="Painel Executivo ARGUS"
-        description="Inteligência analítica de obras públicas — recorte territorial: Macaé-RJ."
+        title="Painel ARGUS — Eficiência de Obras Públicas em Macaé-RJ"
+        description="Monitoramento de contratos, prazos, custos, alertas e risco de obras públicas com base no Índice ARGUS."
         actions={
           <div className="hidden items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground md:flex">
             <MapPin className="h-3.5 w-3.5 text-primary" />
@@ -99,7 +107,7 @@ function DashboardPage() {
         <StatCard label="Obras atrasadas" value={fmtNumber(s.delayed_works)} icon={Activity} tone="warning" helper="Acima da tolerância de 90 dias" />
         <StatCard label="Valor contratado total" value={fmtBRL(valorTotal)} icon={Wallet} tone="accent" helper="Somatório dos contratos" />
         <StatCard label="Valor liquidado/pago" value={fmtBRL(valorPago)} icon={Wallet} tone="primary" helper="Execução financeira" />
-        <StatCard label="Próxima atualização" value={etlData.next_run_time ? fmtDate(etlData.next_run_time) : "—"} icon={Activity} helper={etlData.time_left ?? "ETL a cada 15 dias"} />
+        <StatCard label="Próxima atualização" value={formatDateBR(etlData.next_run_time)} icon={Activity} helper={etlData.time_left ?? "ETL a cada 15 dias"} />
         <StatCard label="Pipeline ETL" value={etlData.scheduled ? "Ativo" : "—"} icon={Activity} tone={etlData.scheduled ? "success" : "warning"} helper="Sincronização automática" />
       </div>
 
