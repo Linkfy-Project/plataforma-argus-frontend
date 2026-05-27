@@ -14,12 +14,13 @@ export const Route = createFileRoute("/_app/macae")({
   component: MacaePage,
 });
 
-const MUNICIPIO = "Macaé";
+const MUNICIPIO = "Macae";
+const MUNICIPIO_LABEL = "Macaé-RJ";
 
 function MacaePage() {
   const summary = useQuery({
     queryKey: ["analytics", "summary", MUNICIPIO],
-    queryFn: () => analyticsService.summary(MUNICIPIO),
+    queryFn: () => analyticsService.summary({ municipio: MUNICIPIO }),
   });
   const works = useQuery({
     queryKey: ["works", MUNICIPIO],
