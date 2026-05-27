@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRelatoriosRouteImport } from './routes/_app.relatorios'
 import { Route as AppObrasRouteImport } from './routes/_app.obras'
 import { Route as AppMunicipiosRouteImport } from './routes/_app.municipios'
+import { Route as AppMetodologiaRouteImport } from './routes/_app.metodologia'
 import { Route as AppMapaRouteImport } from './routes/_app.mapa'
 import { Route as AppMacaeRouteImport } from './routes/_app.macae'
 import { Route as AppEtlRouteImport } from './routes/_app.etl'
@@ -51,6 +52,11 @@ const AppObrasRoute = AppObrasRouteImport.update({
 const AppMunicipiosRoute = AppMunicipiosRouteImport.update({
   id: '/municipios',
   path: '/municipios',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMetodologiaRoute = AppMetodologiaRouteImport.update({
+  id: '/metodologia',
+  path: '/metodologia',
   getParentRoute: () => AppRoute,
 } as any)
 const AppMapaRoute = AppMapaRouteImport.update({
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/etl': typeof AppEtlRoute
   '/macae': typeof AppMacaeRoute
   '/mapa': typeof AppMapaRoute
+  '/metodologia': typeof AppMetodologiaRoute
   '/municipios': typeof AppMunicipiosRoute
   '/obras': typeof AppObrasRouteWithChildren
   '/relatorios': typeof AppRelatoriosRoute
@@ -119,6 +126,7 @@ export interface FileRoutesByTo {
   '/etl': typeof AppEtlRoute
   '/macae': typeof AppMacaeRoute
   '/mapa': typeof AppMapaRoute
+  '/metodologia': typeof AppMetodologiaRoute
   '/municipios': typeof AppMunicipiosRoute
   '/obras': typeof AppObrasRouteWithChildren
   '/relatorios': typeof AppRelatoriosRoute
@@ -136,6 +144,7 @@ export interface FileRoutesById {
   '/_app/etl': typeof AppEtlRoute
   '/_app/macae': typeof AppMacaeRoute
   '/_app/mapa': typeof AppMapaRoute
+  '/_app/metodologia': typeof AppMetodologiaRoute
   '/_app/municipios': typeof AppMunicipiosRoute
   '/_app/obras': typeof AppObrasRouteWithChildren
   '/_app/relatorios': typeof AppRelatoriosRoute
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/etl'
     | '/macae'
     | '/mapa'
+    | '/metodologia'
     | '/municipios'
     | '/obras'
     | '/relatorios'
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/etl'
     | '/macae'
     | '/mapa'
+    | '/metodologia'
     | '/municipios'
     | '/obras'
     | '/relatorios'
@@ -184,6 +195,7 @@ export interface FileRouteTypes {
     | '/_app/etl'
     | '/_app/macae'
     | '/_app/mapa'
+    | '/_app/metodologia'
     | '/_app/municipios'
     | '/_app/obras'
     | '/_app/relatorios'
@@ -238,6 +250,13 @@ declare module '@tanstack/react-router' {
       path: '/municipios'
       fullPath: '/municipios'
       preLoaderRoute: typeof AppMunicipiosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/metodologia': {
+      id: '/_app/metodologia'
+      path: '/metodologia'
+      fullPath: '/metodologia'
+      preLoaderRoute: typeof AppMetodologiaRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/mapa': {
@@ -319,6 +338,7 @@ interface AppRouteChildren {
   AppEtlRoute: typeof AppEtlRoute
   AppMacaeRoute: typeof AppMacaeRoute
   AppMapaRoute: typeof AppMapaRoute
+  AppMetodologiaRoute: typeof AppMetodologiaRoute
   AppMunicipiosRoute: typeof AppMunicipiosRoute
   AppObrasRoute: typeof AppObrasRouteWithChildren
   AppRelatoriosRoute: typeof AppRelatoriosRoute
@@ -332,6 +352,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppEtlRoute: AppEtlRoute,
   AppMacaeRoute: AppMacaeRoute,
   AppMapaRoute: AppMapaRoute,
+  AppMetodologiaRoute: AppMetodologiaRoute,
   AppMunicipiosRoute: AppMunicipiosRoute,
   AppObrasRoute: AppObrasRouteWithChildren,
   AppRelatoriosRoute: AppRelatoriosRoute,
