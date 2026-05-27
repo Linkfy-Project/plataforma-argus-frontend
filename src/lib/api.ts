@@ -289,6 +289,10 @@ export const worksService = {
       async () => (await api.get<WorkRead>(`/works/${id}`)).data,
       null,
     ),
+  recompute: async (id: string | number): Promise<WorkRead> =>
+    (await api.post<WorkRead>(`/works/${id}/recompute`)).data,
+  recomputeAll: async (): Promise<unknown> =>
+    (await api.post(`/works/recompute-all`)).data,
 };
 
 export const analyticsService = {
@@ -331,6 +335,8 @@ export const etlService = {
       async () => (await api.get("/etl/sync-status")).data,
       {},
     ),
+  runSync: async (params: { municipio?: string; ano?: number } = {}): Promise<unknown> =>
+    (await api.post(`/etl/sync-public-data`, null, { params })).data,
 };
 
 export const exportsService = {

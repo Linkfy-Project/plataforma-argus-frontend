@@ -15,8 +15,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRelatoriosRouteImport } from './routes/_app.relatorios'
 import { Route as AppObrasRouteImport } from './routes/_app.obras'
 import { Route as AppMunicipiosRouteImport } from './routes/_app.municipios'
+import { Route as AppMetodologiaRouteImport } from './routes/_app.metodologia'
 import { Route as AppMapaRouteImport } from './routes/_app.mapa'
 import { Route as AppMacaeRouteImport } from './routes/_app.macae'
+import { Route as AppEtlRouteImport } from './routes/_app.etl'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppContratosRouteImport } from './routes/_app.contratos'
 import { Route as AppConfiguracoesRouteImport } from './routes/_app.configuracoes'
@@ -52,6 +54,11 @@ const AppMunicipiosRoute = AppMunicipiosRouteImport.update({
   path: '/municipios',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMetodologiaRoute = AppMetodologiaRouteImport.update({
+  id: '/metodologia',
+  path: '/metodologia',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppMapaRoute = AppMapaRouteImport.update({
   id: '/mapa',
   path: '/mapa',
@@ -60,6 +67,11 @@ const AppMapaRoute = AppMapaRouteImport.update({
 const AppMacaeRoute = AppMacaeRouteImport.update({
   id: '/macae',
   path: '/macae',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEtlRoute = AppEtlRouteImport.update({
+  id: '/etl',
+  path: '/etl',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
@@ -95,8 +107,10 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof AppConfiguracoesRoute
   '/contratos': typeof AppContratosRoute
   '/dashboard': typeof AppDashboardRoute
+  '/etl': typeof AppEtlRoute
   '/macae': typeof AppMacaeRoute
   '/mapa': typeof AppMapaRoute
+  '/metodologia': typeof AppMetodologiaRoute
   '/municipios': typeof AppMunicipiosRoute
   '/obras': typeof AppObrasRouteWithChildren
   '/relatorios': typeof AppRelatoriosRoute
@@ -109,8 +123,10 @@ export interface FileRoutesByTo {
   '/configuracoes': typeof AppConfiguracoesRoute
   '/contratos': typeof AppContratosRoute
   '/dashboard': typeof AppDashboardRoute
+  '/etl': typeof AppEtlRoute
   '/macae': typeof AppMacaeRoute
   '/mapa': typeof AppMapaRoute
+  '/metodologia': typeof AppMetodologiaRoute
   '/municipios': typeof AppMunicipiosRoute
   '/obras': typeof AppObrasRouteWithChildren
   '/relatorios': typeof AppRelatoriosRoute
@@ -125,8 +141,10 @@ export interface FileRoutesById {
   '/_app/configuracoes': typeof AppConfiguracoesRoute
   '/_app/contratos': typeof AppContratosRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/etl': typeof AppEtlRoute
   '/_app/macae': typeof AppMacaeRoute
   '/_app/mapa': typeof AppMapaRoute
+  '/_app/metodologia': typeof AppMetodologiaRoute
   '/_app/municipios': typeof AppMunicipiosRoute
   '/_app/obras': typeof AppObrasRouteWithChildren
   '/_app/relatorios': typeof AppRelatoriosRoute
@@ -141,8 +159,10 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/contratos'
     | '/dashboard'
+    | '/etl'
     | '/macae'
     | '/mapa'
+    | '/metodologia'
     | '/municipios'
     | '/obras'
     | '/relatorios'
@@ -155,8 +175,10 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/contratos'
     | '/dashboard'
+    | '/etl'
     | '/macae'
     | '/mapa'
+    | '/metodologia'
     | '/municipios'
     | '/obras'
     | '/relatorios'
@@ -170,8 +192,10 @@ export interface FileRouteTypes {
     | '/_app/configuracoes'
     | '/_app/contratos'
     | '/_app/dashboard'
+    | '/_app/etl'
     | '/_app/macae'
     | '/_app/mapa'
+    | '/_app/metodologia'
     | '/_app/municipios'
     | '/_app/obras'
     | '/_app/relatorios'
@@ -228,6 +252,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMunicipiosRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/metodologia': {
+      id: '/_app/metodologia'
+      path: '/metodologia'
+      fullPath: '/metodologia'
+      preLoaderRoute: typeof AppMetodologiaRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/mapa': {
       id: '/_app/mapa'
       path: '/mapa'
@@ -240,6 +271,13 @@ declare module '@tanstack/react-router' {
       path: '/macae'
       fullPath: '/macae'
       preLoaderRoute: typeof AppMacaeRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/etl': {
+      id: '/_app/etl'
+      path: '/etl'
+      fullPath: '/etl'
+      preLoaderRoute: typeof AppEtlRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/dashboard': {
@@ -297,8 +335,10 @@ interface AppRouteChildren {
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
   AppContratosRoute: typeof AppContratosRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppEtlRoute: typeof AppEtlRoute
   AppMacaeRoute: typeof AppMacaeRoute
   AppMapaRoute: typeof AppMapaRoute
+  AppMetodologiaRoute: typeof AppMetodologiaRoute
   AppMunicipiosRoute: typeof AppMunicipiosRoute
   AppObrasRoute: typeof AppObrasRouteWithChildren
   AppRelatoriosRoute: typeof AppRelatoriosRoute
@@ -309,8 +349,10 @@ const AppRouteChildren: AppRouteChildren = {
   AppConfiguracoesRoute: AppConfiguracoesRoute,
   AppContratosRoute: AppContratosRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppEtlRoute: AppEtlRoute,
   AppMacaeRoute: AppMacaeRoute,
   AppMapaRoute: AppMapaRoute,
+  AppMetodologiaRoute: AppMetodologiaRoute,
   AppMunicipiosRoute: AppMunicipiosRoute,
   AppObrasRoute: AppObrasRouteWithChildren,
   AppRelatoriosRoute: AppRelatoriosRoute,
@@ -326,3 +368,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

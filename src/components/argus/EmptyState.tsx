@@ -21,7 +21,7 @@ export function EmptyState({
 }
 
 export function LoadingState({
-  message = "Carregando dados...",
+  message = "Carregando dados do ARGUS...",
   rows = 5,
   coldStartAfterMs = 3500,
 }: {
@@ -42,7 +42,7 @@ export function LoadingState({
       <p className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         {coldStart
-          ? "Conectando ao servidor da Plataforma Argus..."
+          ? "A API está inicializando no Render. Aguarde alguns segundos e tente novamente."
           : message}
       </p>
     </div>
@@ -50,7 +50,7 @@ export function LoadingState({
 }
 
 export function ErrorState({
-  message = "Ocorreu um erro ao carregar os dados.",
+  message = "Não foi possível carregar os dados da API ARGUS.",
   onRetry,
 }: {
   message?: string;
