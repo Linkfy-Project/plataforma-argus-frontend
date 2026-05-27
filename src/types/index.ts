@@ -88,6 +88,9 @@ export interface AlertRead {
   id: number;
   code: string;
   severity: string;
+  severity_weight: number;
+  severity_multiplier: number;
+  weighted_severity: number;
   message: string;
   created_at: string;
 }
@@ -95,7 +98,7 @@ export interface AlertRead {
 export interface WorkRead {
   id: number;
   external_id?: string | null;
-  source?: string | null;
+  source: string;
   municipio: string;
   object_description: string;
   contractor_name?: string | null;
@@ -111,6 +114,11 @@ export interface WorkRead {
   paid_value?: number | null;
   additive_value?: number | null;
   area_m2?: number | null;
+  benchmark_cost_m2?: number | null;
+  crea_light_count: number;
+  crea_medium_count: number;
+  crea_grave_count: number;
+  territorial_overlap_ratio?: number | null;
   signed_at?: string | null;
   due_at?: string | null;
   finished_at?: string | null;
@@ -144,4 +152,71 @@ export interface AnalyticsSummary {
 export interface AnalyticsRankings {
   best: Array<Pick<WorkRead, "id" | "municipio" | "object_description" | "contractor_name" | "efficiency_score">>;
   worst: Array<Pick<WorkRead, "id" | "municipio" | "object_description" | "contractor_name" | "efficiency_score">>;
+}
+
+export interface ScoreAlert {
+  code: string;
+  severity: string;
+  severity_weight: number;
+  severity_multiplier: number;
+  weighted_severity: number;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
+export interface ScoreComponents {
+  weights: {
+    cost: number;
+    deadline: number;
+    quality: number;
+    recurrence: number;
+    social_impact: number;
+  };
+  cost: Record<string, unknown>;
+  deadline: Record<string, unknown>;
+  quality: Record<string, unknown>;
+  recurrence: Record<string, unknown>;
+  social_impact: Record<string, unknown>;
+  criticality_rule: Record<string, unknown>;
+}
+
+export interface ScoreExplain {
+  cost_score: number;
+  deadline_score: number;
+  quality_score: number;
+  recurrence_score: number;
+  social_impact_score: number;
+  efficiency_score: number;
+  alerts: ScoreAlert[];
+  components: ScoreComponents;
+}
+
+export interface ScoringRules {
+  weights: Record<string, number>;
+  formulas: Record<string, string>;
+  crea_penalties: { light: number; medium: number; grave: number };
+  criticality_multiplier: {
+    idh_below: number;
+    multiplier: number;
+    applies_to: string;
+  };
+}
+
+export interface SyncStatus {
+  scheduled?: boolean;
+  job_id?: string;
+  timezone?: string;
+  now?: string;
+  next_run_time?: string;
+  seconds_left?: number;
+  time_left?: string;
+}
+
+/** Alerta enriquecido com dados da obra de origem (para a página Alertas). */
+export interface AlertWithWork extends AlertRead {
+  work_id: number;
+  work_object_description: string;
+  contractor_name: string | null;
+  municipio: string;
+  efficiency_score: number | null;
 }

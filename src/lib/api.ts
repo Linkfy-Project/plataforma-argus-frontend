@@ -1,12 +1,3 @@
-export type GeoFeatureCollection = {
-  type: "FeatureCollection";
-  features: Array<{
-    type: "Feature";
-    geometry: { type: string; coordinates: unknown };
-    properties: Record<string, unknown>;
-  }>;
-};
-
 import axios, { AxiosError } from "axios";
 import {
   mockObras,
@@ -26,7 +17,26 @@ import type {
   AlertRead,
   AnalyticsSummary,
   AnalyticsRankings,
+  ScoreExplain,
+  ScoringRules,
+  SyncStatus,
 } from "@/types";
+
+export type GeoFeatureCollection = {
+  type: "FeatureCollection";
+  features: Array<{
+    type: "Feature";
+    geometry: { type: string; coordinates: [number, number] | number[] };
+    properties: {
+      id: number;
+      municipio: string;
+      score: number | null;
+      objeto: string;
+      contratado: string | null;
+      [key: string]: unknown;
+    };
+  }>;
+};
 
 /**
  * Camada HTTP da Plataforma Argus.
@@ -59,8 +69,10 @@ export const USE_MOCK =
 /** Render free pode levar ~50s para acordar (cold start). */
 const COLD_START_TIMEOUT_MS = 90_000;
 
+const ROOT = API_BASE_URL.replace(/\/$/, "");
+
 export const api = axios.create({
-  baseURL: `${API_BASE_URL.replace(/\/$/, "")}/api/v1`,
+  baseURL: `${ROOT}/api/v1`,
   timeout: COLD_START_TIMEOUT_MS,
   headers: { Accept: "application/json" },
 });
@@ -81,19 +93,15 @@ api.interceptors.response.use(
   },
 );
 
-/** Executa `fn` contra a API; em DEV cai no `fallback` em caso de erro. */
-async function withFallback<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
-  if (USE_MOCK) return fallback;
-  try {
-    return await fn();
-  } catch (err) {
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.warn("[Argus API] usando fallback de mock:", (err as Error).message);
-      return fallback;
-    }
-    throw err;
-  }
+/**
+ * Executa `fn`. Quando `VITE_USE_MOCK=true`, devolve o `mockValue` em vez
+ * de chamar a API. Em produção (`USE_MOCK=false`) os erros sobem para o
+ * React Query — nunca substituímos silenciosamente dados reais por mocks,
+ * inclusive quando a API responde com lista vazia.
+ */
+async function callOrMock<T>(fn: () => Promise<T>, mockValue: T): Promise<T> {
+  if (USE_MOCK) return mockValue;
+  return await fn();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -278,30 +286,47 @@ export interface WorksListParams {
   offset?: number;
 }
 
+export const healthService = {
+  health: async (): Promise<{ status: string } | Record<string, unknown>> =>
+    (await axios.get(`${ROOT}/health`, { timeout: COLD_START_TIMEOUT_MS })).data,
+};
+
 export const worksService = {
   list: (params: WorksListParams = {}) =>
-    withFallback<WorkRead[]>(
+    callOrMock<WorkRead[]>(
       async () => (await api.get<WorkRead[]>("/works", { params })).data,
       [],
     ),
   get: (id: string | number) =>
-    withFallback<WorkRead | null>(
+    callOrMock<WorkRead | null>(
       async () => (await api.get<WorkRead>(`/works/${id}`)).data,
       null,
     ),
+  create: async (payload: Partial<WorkRead>): Promise<WorkRead> =>
+    (await api.post<WorkRead>("/works", payload)).data,
   recompute: async (id: string | number): Promise<WorkRead> =>
     (await api.post<WorkRead>(`/works/${id}/recompute`)).data,
   recomputeAll: async (): Promise<unknown> =>
-    (await api.post(`/works/recompute-all`)).data,
+    (await api.post("/works/recompute-all")).data,
+  scoreExplain: (id: string | number) =>
+    callOrMock<ScoreExplain | null>(
+      async () => (await api.get<ScoreExplain>(`/works/${id}/score-explain`)).data,
+      null,
+    ),
+  scoringRules: () =>
+    callOrMock<ScoringRules | null>(
+      async () => (await api.get<ScoringRules>("/works/scoring/rules")).data,
+      null,
+    ),
 };
 
 export const analyticsService = {
-  summary: (municipio?: string) =>
-    withFallback<AnalyticsSummary>(
+  summary: (params: { municipio?: string } = {}) =>
+    callOrMock<AnalyticsSummary>(
       async () =>
         (
           await api.get<AnalyticsSummary>("/analytics/summary", {
-            params: municipio ? { municipio } : undefined,
+            params: params.municipio ? { municipio: params.municipio } : undefined,
           })
         ).data,
       {
@@ -312,36 +337,56 @@ export const analyticsService = {
       },
     ),
   rankings: (limit = 10) =>
-    withFallback<AnalyticsRankings>(
+    callOrMock<AnalyticsRankings>(
       async () =>
-        (
-          await api.get<AnalyticsRankings>("/analytics/rankings", {
-            params: { limit },
-          })
-        ).data,
+        (await api.get<AnalyticsRankings>("/analytics/rankings", { params: { limit } })).data,
       { best: [], worst: [] },
     ),
   mapGeoJson: () =>
-    withFallback<GeoFeatureCollection>(
-      async () =>
-        (await api.get<GeoFeatureCollection>("/analytics/map/geojson")).data,
+    callOrMock<GeoFeatureCollection>(
+      async () => (await api.get<GeoFeatureCollection>("/analytics/map/geojson")).data,
       { type: "FeatureCollection", features: [] },
     ),
 };
 
 export const etlService = {
   syncStatus: () =>
-    withFallback<Record<string, unknown>>(
-      async () => (await api.get("/etl/sync-status")).data,
+    callOrMock<SyncStatus>(
+      async () => (await api.get<SyncStatus>("/etl/sync-status")).data,
       {},
     ),
-  runSync: async (params: { municipio?: string; ano?: number } = {}): Promise<unknown> =>
-    (await api.post(`/etl/sync-public-data`, null, { params })).data,
+  syncPublicData: async (params: { municipio?: string; ano?: number } = {}) =>
+    (await api.post("/etl/sync-public-data", null, {
+      params: { municipio: params.municipio ?? "Macae", ...(params.ano ? { ano: params.ano } : {}) },
+    })).data,
+  runTcerj: async (params: { municipio?: string; ano?: number } = {}) =>
+    (await api.post("/etl/tcerj/run", null, {
+      params: { municipio: params.municipio ?? "Macae", ...(params.ano ? { ano: params.ano } : {}) },
+    })).data,
+  runMacaePortal: async () => (await api.post("/etl/macae-portal/run")).data,
+  importCsv: async (params: { path: string; municipio?: string }) =>
+    (await api.post("/etl/import-csv", null, {
+      params: { path: params.path, municipio: params.municipio ?? "Macae" },
+    })).data,
+};
+
+export const geoService = {
+  layer: (layerType: "municipality" | "census_tract" | "road") =>
+    callOrMock<GeoFeatureCollection>(
+      async () => (await api.get<GeoFeatureCollection>(`/geo-layers/${layerType}`)).data,
+      { type: "FeatureCollection", features: [] },
+    ),
+};
+
+export const mlService = {
+  predict: async (payload: Record<string, unknown>) =>
+    (await api.post("/ml/predict", payload)).data,
+  trainBaseline: async () => (await api.post("/ml/train-baseline")).data,
 };
 
 export const exportsService = {
-  worksCsvUrl: () => `${API_BASE_URL.replace(/\/$/, "")}/api/v1/exports/works.csv`,
-  worksXlsxUrl: () => `${API_BASE_URL.replace(/\/$/, "")}/api/v1/exports/works.xlsx`,
+  worksCsvUrl: () => `${ROOT}/api/v1/exports/works.csv`,
+  worksXlsxUrl: () => `${ROOT}/api/v1/exports/works.xlsx`,
 };
 
 /* -------------------------------------------------------------------------- */
@@ -359,21 +404,13 @@ export interface ObrasListParams {
 
 export const obrasService = {
   list: async (params: ObrasListParams = {}): Promise<Obra[]> => {
-    const works = await withFallback<WorkRead[]>(
-      async () =>
-        (
-          await api.get<WorkRead[]>("/works", {
-            params: {
-              municipio: params.municipio,
-              limit: params.limit ?? 500,
-              offset: params.offset ?? 0,
-            },
-          })
-        ).data,
-      [],
-    );
-    const obras = works.length ? works.map(adaptObra) : mockObras;
-    return obras.filter((o) => {
+    const works = await worksService.list({
+      municipio: params.municipio,
+      limit: params.limit ?? 500,
+      offset: params.offset ?? 0,
+    });
+    const base = USE_MOCK && works.length === 0 ? mockObras : works.map(adaptObra);
+    return base.filter((o) => {
       if (params.status && o.status !== params.status) return false;
       if (params.q) {
         const k = params.q.toLowerCase();
@@ -386,31 +423,31 @@ export const obrasService = {
   get: async (id: string): Promise<Obra | undefined> => {
     const w = await worksService.get(id);
     if (w) return adaptObra(w);
-    return mockObras.find((o) => o.id === id);
+    return USE_MOCK ? mockObras.find((o) => o.id === id) : undefined;
   },
 };
 
 export const municipiosService = {
   list: async (): Promise<Municipio[]> => {
     const works = await worksService.list({ limit: 1000 });
-    if (works.length) return municipiosFromWorks(works);
-    return mockMunicipios;
+    if (USE_MOCK && works.length === 0) return mockMunicipios;
+    return municipiosFromWorks(works);
   },
 };
 
 export const contratosService = {
   list: async (_params: { q?: string } = {}): Promise<Contrato[]> => {
     const works = await worksService.list({ limit: 1000 });
-    if (works.length) return contratosFromWorks(works);
-    return mockContratos;
+    if (USE_MOCK && works.length === 0) return mockContratos;
+    return contratosFromWorks(works);
   },
 };
 
 export const alertasService = {
   list: async (_params: { nivel?: string } = {}): Promise<Alerta[]> => {
     const works = await worksService.list({ limit: 1000 });
-    if (works.length) return alertasFromWorks(works);
-    return mockAlertas;
+    if (USE_MOCK && works.length === 0) return mockAlertas;
+    return alertasFromWorks(works);
   },
 };
 

@@ -10,7 +10,12 @@
  *
  * O multiplicador de criticidade é aplicado quando IDH < 0,600.
  */
-export type RiskLevel = "Eficiente" | "Atenção" | "Alto risco" | "Crítico";
+export type RiskLevel =
+  | "Baixo"
+  | "Atenção"
+  | "Alto"
+  | "Crítico"
+  | "Indefinido";
 
 export const ARGUS_PILLARS = [
   { key: "cost", label: "Custo Paramétrico", weight: 0.30, scoreField: "cost_score" as const },
@@ -22,11 +27,12 @@ export const ARGUS_PILLARS = [
 
 export const IDH_CRITICAL_THRESHOLD = 0.6;
 
+/** Faixa textual de risco — ver Metodologia ARGUS. */
 export function getRiskLevel(score: number | null | undefined): RiskLevel {
-  const s = score ?? 0;
-  if (s >= 80) return "Eficiente";
-  if (s >= 60) return "Atenção";
-  if (s >= 40) return "Alto risco";
+  if (score == null || Number.isNaN(score)) return "Indefinido";
+  if (score >= 80) return "Baixo";
+  if (score >= 60) return "Atenção";
+  if (score >= 40) return "Alto";
   return "Crítico";
 }
 
@@ -34,22 +40,87 @@ export function getScoreLabel(score: number | null | undefined): string {
   return getRiskLevel(score);
 }
 
+export function getRiskDescription(score: number | null | undefined): string {
+  switch (getRiskLevel(score)) {
+    case "Baixo":
+      return "Obra eficiente — indicadores dentro dos parâmetros esperados.";
+    case "Atenção":
+      return "Obra requer monitoramento ativo — risco moderado detectado.";
+    case "Alto":
+      return "Obra com sinais relevantes de risco — necessita revisão.";
+    case "Crítico":
+      return "Obra em situação crítica — recomendada auditoria imediata.";
+    default:
+      return "Score ainda não calculado para esta obra.";
+  }
+}
+
 /** Classe Tailwind para cor de fundo/texto consistente. */
 export function getScoreClasses(score: number | null | undefined): string {
-  const s = score ?? 0;
-  if (s >= 80) return "bg-[color:var(--success)]/15 text-[color:var(--success)] border-[color:var(--success)]/30";
-  if (s >= 60) return "bg-[color:var(--warning)]/15 text-[color:var(--warning)] border-[color:var(--warning)]/30";
-  if (s >= 40) return "bg-orange-500/15 text-orange-600 border-orange-500/30";
-  return "bg-destructive/10 text-destructive border-destructive/30";
+  switch (getRiskLevel(score)) {
+    case "Baixo":
+      return "bg-[color:var(--success)]/15 text-[color:var(--success)] border-[color:var(--success)]/30";
+    case "Atenção":
+      return "bg-[color:var(--warning)]/15 text-[color:var(--warning)] border-[color:var(--warning)]/30";
+    case "Alto":
+      return "bg-orange-500/15 text-orange-600 border-orange-500/30";
+    case "Crítico":
+      return "bg-destructive/10 text-destructive border-destructive/30";
+    default:
+      return "bg-muted text-muted-foreground border-border";
+  }
 }
+
+export const getScoreColorClass = getScoreClasses;
 
 /** Cor hex usada em charts / map markers. */
 export function getScoreHex(score: number | null | undefined): string {
-  const s = score ?? 0;
-  if (s >= 80) return "#22C55E";
-  if (s >= 60) return "#F59E0B";
-  if (s >= 40) return "#F97316";
-  return "#DC2626";
+  switch (getRiskLevel(score)) {
+    case "Baixo": return "#22C55E";
+    case "Atenção": return "#F59E0B";
+    case "Alto": return "#F97316";
+    case "Crítico": return "#DC2626";
+    default: return "#94A3B8";
+  }
+}
+
+/* --------------------------- Severidade de alertas ------------------------- */
+
+export type SeverityKey = "critical" | "alert" | "warning" | "info";
+
+export function getSeverityKey(severity: string): SeverityKey {
+  const s = (severity ?? "").toLowerCase();
+  if (s === "critical" || s === "danger" || s === "crítico") return "critical";
+  if (s === "alert" || s === "high" || s === "alto") return "alert";
+  if (s === "warning" || s === "warn" || s === "atenção" || s === "medium") return "warning";
+  return "info";
+}
+
+export function getSeverityLabel(severity: string): string {
+  switch (getSeverityKey(severity)) {
+    case "critical": return "Crítico";
+    case "alert": return "Alerta";
+    case "warning": return "Atenção";
+    default: return "Informativo";
+  }
+}
+
+export function getSeverityColorClass(severity: string): string {
+  switch (getSeverityKey(severity)) {
+    case "critical":
+      return "bg-destructive/10 text-destructive border-destructive/30";
+    case "alert":
+      return "bg-orange-500/15 text-orange-600 border-orange-500/30";
+    case "warning":
+      return "bg-[color:var(--warning)]/15 text-[color:var(--warning)] border-[color:var(--warning)]/30";
+    default:
+      return "bg-primary/10 text-primary border-primary/30";
+  }
+}
+
+export function formatSeverityMultiplier(multiplier: number): string {
+  if (!multiplier || multiplier === 1) return "1.0×";
+  return `${multiplier.toFixed(1)}×`;
 }
 
 /** Faz o download de uma URL forçando um filename amigável. */
