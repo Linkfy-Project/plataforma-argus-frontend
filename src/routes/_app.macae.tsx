@@ -45,8 +45,8 @@ function MacaePage() {
   return (
     <div>
       <PageHeader
-        title="Análise Territorial — Macaé"
-        description="Recorte aprofundado da execução de obras públicas no município de Macaé/RJ."
+        title={`Análise Microterritorial — ${MUNICIPIO_LABEL}`}
+        description="Recorte aprofundado da execução de obras públicas no município de Macaé-RJ, polo offshore e maior volume de contratos públicos da região norte fluminense."
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
