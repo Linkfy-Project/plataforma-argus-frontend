@@ -303,7 +303,28 @@ export const healthService = {
 export const worksService = {
   list: (params: WorksListParams = {}) =>
     callOrMock<WorkRead[]>(
-      async () => (await api.get<WorkRead[]>("/works", { params })).data,
+      async () => {
+        // Backend limita `limit` a 500. Quando o caller pedir mais,
+        // paginamos automaticamente via `offset` até esgotar o dataset
+        // (ou atingir o limite solicitado).
+        const requested = params.limit ?? 100;
+        const pageSize = Math.min(500, requested);
+        let offset = params.offset ?? 0;
+        const out: WorkRead[] = [];
+        // Hard cap para evitar loops acidentais.
+        const hardCap = Math.min(requested, 5000);
+        while (out.length < hardCap) {
+          const remaining = hardCap - out.length;
+          const thisLimit = Math.min(pageSize, remaining);
+          const { data } = await api.get<WorkRead[]>("/works", {
+            params: { ...params, limit: thisLimit, offset },
+          });
+          out.push(...data);
+          if (data.length < thisLimit) break; // fim do dataset
+          offset += data.length;
+        }
+        return out;
+      },
       [],
     ),
   get: (id: string | number) =>
