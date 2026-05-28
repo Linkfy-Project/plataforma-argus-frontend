@@ -23,6 +23,7 @@ import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppContratosRouteImport } from './routes/_app.contratos'
 import { Route as AppConfiguracoesRouteImport } from './routes/_app.configuracoes'
 import { Route as AppAlertasRouteImport } from './routes/_app.alertas'
+import { Route as ApiArgusSplatRouteImport } from './routes/api.argus.$'
 import { Route as AppObrasIdRouteImport } from './routes/_app.obras.$id'
 
 const LoginRoute = LoginRouteImport.update({
@@ -94,6 +95,11 @@ const AppAlertasRoute = AppAlertasRouteImport.update({
   path: '/alertas',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiArgusSplatRoute = ApiArgusSplatRouteImport.update({
+  id: '/api/argus/$',
+  path: '/api/argus/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppObrasIdRoute = AppObrasIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/obras': typeof AppObrasRouteWithChildren
   '/relatorios': typeof AppRelatoriosRoute
   '/obras/$id': typeof AppObrasIdRoute
+  '/api/argus/$': typeof ApiArgusSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/obras': typeof AppObrasRouteWithChildren
   '/relatorios': typeof AppRelatoriosRoute
   '/obras/$id': typeof AppObrasIdRoute
+  '/api/argus/$': typeof ApiArgusSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/_app/obras': typeof AppObrasRouteWithChildren
   '/_app/relatorios': typeof AppRelatoriosRoute
   '/_app/obras/$id': typeof AppObrasIdRoute
+  '/api/argus/$': typeof ApiArgusSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -167,6 +176,7 @@ export interface FileRouteTypes {
     | '/obras'
     | '/relatorios'
     | '/obras/$id'
+    | '/api/argus/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/obras'
     | '/relatorios'
     | '/obras/$id'
+    | '/api/argus/$'
   id:
     | '__root__'
     | '/'
@@ -200,12 +211,14 @@ export interface FileRouteTypes {
     | '/_app/obras'
     | '/_app/relatorios'
     | '/_app/obras/$id'
+    | '/api/argus/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  ApiArgusSplatRoute: typeof ApiArgusSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -308,6 +321,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAlertasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/argus/$': {
+      id: '/api/argus/$'
+      path: '/api/argus/$'
+      fullPath: '/api/argus/$'
+      preLoaderRoute: typeof ApiArgusSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/obras/$id': {
       id: '/_app/obras/$id'
       path: '/$id'
@@ -364,17 +384,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  ApiArgusSplatRoute: ApiArgusSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

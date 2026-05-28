@@ -59,9 +59,13 @@ export type GeoFeatureCollection = {
  * desenvolvimento quando a API estiver indisponível, ou quando
  * `VITE_USE_MOCK=true` for explicitamente definido.
  */
+/**
+ * Por padrão usamos o proxy interno (`/api/argus`) para evitar problemas
+ * de CORS com o backend hospedado no Render. Caso seja necessário apontar
+ * para outro backend, defina `VITE_API_BASE_URL`.
+ */
 export const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
-  "https://argus-backend-5bio.onrender.com";
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) || "/api/argus";
 
 export const USE_MOCK =
   String(import.meta.env.VITE_USE_MOCK ?? "").toLowerCase() === "true";
@@ -70,6 +74,7 @@ export const USE_MOCK =
 const COLD_START_TIMEOUT_MS = 90_000;
 
 const ROOT = API_BASE_URL.replace(/\/$/, "");
+const IS_ABSOLUTE = /^https?:\/\//i.test(ROOT);
 
 export const api = axios.create({
   baseURL: `${ROOT}/api/v1`,
@@ -288,7 +293,11 @@ export interface WorksListParams {
 
 export const healthService = {
   health: async (): Promise<{ status: string } | Record<string, unknown>> =>
-    (await axios.get(`${ROOT}/health`, { timeout: COLD_START_TIMEOUT_MS })).data,
+    (
+      await axios.get(IS_ABSOLUTE ? `${ROOT}/health` : `${ROOT}/health`, {
+        timeout: COLD_START_TIMEOUT_MS,
+      })
+    ).data,
 };
 
 export const worksService = {
