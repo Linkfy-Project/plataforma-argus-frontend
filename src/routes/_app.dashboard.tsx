@@ -52,12 +52,12 @@ const RISK_COLORS: Record<string, string> = {
 
 function DashboardPage() {
   const summary = useQuery({
-    queryKey: ["analytics", "summary", { municipio: "Macae" }],
-    queryFn: () => analyticsService.summary({ municipio: "Macae" }),
+    queryKey: ["analytics", "summary", { municipio: "macae" }],
+    queryFn: () => analyticsService.summary({ municipio: "macae" }),
   });
   const works = useQuery({
-    queryKey: ["works", { municipio: "Macae", limit: 1000 }],
-    queryFn: () => worksService.list({ municipio: "Macae", limit: 1000 }),
+    queryKey: ["works", { municipio: "macae", limit: 1000 }],
+    queryFn: () => worksService.list({ municipio: "macae", limit: 1000 }),
   });
   const rankings = useQuery({
     queryKey: ["analytics", "rankings", 5],
