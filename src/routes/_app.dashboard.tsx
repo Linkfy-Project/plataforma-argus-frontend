@@ -45,7 +45,7 @@ export const Route = createFileRoute("/_app/dashboard")({
 const RISK_COLORS: Record<string, string> = {
   Baixo: "#22C55E",
   Atenção: "#F59E0B",
-  Alto: "#lightblue",
+  Alto: "##94A3B8",
   Crítico: "#DC2626",
   Indefinido: "#94A3B8",
 };
