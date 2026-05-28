@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { obrasService } from "@/lib/api";
 import { fmtBRL, fmtDate, fmtPct } from "@/lib/format";
 import type { ObraStatus } from "@/types";
+import { getRiskLevel, type RiskLevel } from "@/lib/score";
 
 export const Route = createFileRoute("/_app/obras")({
   head: () => ({ meta: [{ title: "Obras — Plataforma Argus" }] }),
@@ -20,6 +21,13 @@ export const Route = createFileRoute("/_app/obras")({
 
 const STATUSES: ObraStatus[] = ["Planejada", "Em andamento", "Concluída", "Atrasada", "Paralisada"];
 const PAGE_SIZES = [10, 25, 50];
+const SCORE_BUCKETS: { value: string; label: string; match: RiskLevel | "sem" }[] = [
+  { value: "baixo", label: "Baixo risco (≥ 80)", match: "Baixo" },
+  { value: "atencao", label: "Atenção (60–79)", match: "Atenção" },
+  { value: "alto", label: "Alto risco (40–59)", match: "Alto" },
+  { value: "critico", label: "Crítico (< 40)", match: "Crítico" },
+  { value: "sem", label: "Sem score", match: "sem" },
+];
 
 function ObrasPage() {
   const { data, isLoading, isError, refetch } = useQuery({
@@ -31,6 +39,7 @@ function ObrasPage() {
   const [mun, setMun] = useState<string>("todos");
   const [status, setStatus] = useState<string>("todos");
   const [faixa, setFaixa] = useState<string>("todas");
+  const [scoreBucket, setScoreBucket] = useState<string>("todos");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -39,15 +48,27 @@ function ObrasPage() {
   const filtered = useMemo(() => {
     const list = data ?? [];
     return list.filter((o) => {
-      if (q && !`${o.nome} ${o.municipio}`.toLowerCase().includes(q.toLowerCase())) return false;
+      const term = q.trim().toLowerCase();
+      if (term) {
+        const scoreStr = o.eficiencia != null ? String(Math.round(o.eficiencia)) : "";
+        const haystack = `${o.nome} ${o.municipio} ${scoreStr}`.toLowerCase();
+        if (!haystack.includes(term)) return false;
+      }
       if (mun !== "todos" && o.municipio !== mun) return false;
       if (status !== "todos" && o.status !== status) return false;
       if (faixa === "ate1") return o.valor_contratado <= 1_000_000;
       if (faixa === "1a5") return o.valor_contratado > 1_000_000 && o.valor_contratado <= 5_000_000;
       if (faixa === "mais5") return o.valor_contratado > 5_000_000;
+      if (scoreBucket !== "todos") {
+        const bucket = SCORE_BUCKETS.find((b) => b.value === scoreBucket);
+        if (!bucket) return true;
+        if (bucket.match === "sem") return o.eficiencia == null;
+        if (o.eficiencia == null) return false;
+        if (getRiskLevel(o.eficiencia) !== bucket.match) return false;
+      }
       return true;
     });
-  }, [data, q, mun, status, faixa]);
+  }, [data, q, mun, status, faixa, scoreBucket]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -57,11 +78,11 @@ function ObrasPage() {
     <div>
       <PageHeader title="Obras Públicas" description="Listagem completa das obras monitoradas." />
 
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }}
-            placeholder="Buscar por obra ou município..." className="pl-9 bg-card" />
+            placeholder="Buscar por obra, município ou score..." className="pl-9 bg-card" />
         </div>
         <Select value={mun} onValueChange={(v) => { setMun(v); setPage(1); }}>
           <SelectTrigger className="bg-card"><SelectValue placeholder="Município" /></SelectTrigger>
@@ -84,6 +105,15 @@ function ObrasPage() {
             <SelectItem value="ate1">Até R$ 1 mi</SelectItem>
             <SelectItem value="1a5">R$ 1 mi – R$ 5 mi</SelectItem>
             <SelectItem value="mais5">Acima de R$ 5 mi</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={scoreBucket} onValueChange={(v) => { setScoreBucket(v); setPage(1); }}>
+          <SelectTrigger className="bg-card"><SelectValue placeholder="Score ARGUS" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os scores</SelectItem>
+            {SCORE_BUCKETS.map((b) => (
+              <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
