@@ -2,11 +2,29 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
-  HardHat, Activity, Wallet, AlertTriangle, Gauge, MapPin, ArrowRight, Trophy, TrendingDown, BookOpen,
+  HardHat,
+  Activity,
+  Wallet,
+  AlertTriangle,
+  Gauge,
+  MapPin,
+  ArrowRight,
+  Trophy,
+  TrendingDown,
+  BookOpen,
 } from "lucide-react";
 import {
-  Bar, BarChart, CartesianGrid, Cell, Legend,
-  Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
 import { PageHeader } from "@/components/argus/PageHeader";
 import { StatCard } from "@/components/argus/StatCard";
@@ -25,11 +43,11 @@ export const Route = createFileRoute("/_app/dashboard")({
 });
 
 const RISK_COLORS: Record<string, string> = {
-  "Baixo": "#22C55E",
-  "Atenção": "#F59E0B",
-  "Alto": "#F97316",
-  "Crítico": "#DC2626",
-  "Indefinido": "#94A3B8",
+  Baixo: "#22C55E",
+  Atenção: "#F59E0B",
+  Alto: "#F97316",
+  Crítico: "#DC2626",
+  Indefinido: "#94A3B8",
 };
 
 function DashboardPage() {
@@ -38,8 +56,8 @@ function DashboardPage() {
     queryFn: () => analyticsService.summary({ municipio: "Macae" }),
   });
   const works = useQuery({
-    queryKey: ["works", { municipio: "Macae", limit: 500 }],
-    queryFn: () => worksService.list({ municipio: "Macae", limit: 500 }),
+    queryKey: ["works", { municipio: "Macae", limit: 1000 }],
+    queryFn: () => worksService.list({ municipio: "Macae", limit: 1000 }),
   });
   const rankings = useQuery({
     queryKey: ["analytics", "rankings", 5],
@@ -68,8 +86,14 @@ function DashboardPage() {
 
   const scoreDist = [
     { faixa: "0–39", total: ws.filter((w) => (w.efficiency_score ?? 0) < 40).length },
-    { faixa: "40–59", total: ws.filter((w) => (w.efficiency_score ?? 0) >= 40 && (w.efficiency_score ?? 0) < 60).length },
-    { faixa: "60–79", total: ws.filter((w) => (w.efficiency_score ?? 0) >= 60 && (w.efficiency_score ?? 0) < 80).length },
+    {
+      faixa: "40–59",
+      total: ws.filter((w) => (w.efficiency_score ?? 0) >= 40 && (w.efficiency_score ?? 0) < 60).length,
+    },
+    {
+      faixa: "60–79",
+      total: ws.filter((w) => (w.efficiency_score ?? 0) >= 60 && (w.efficiency_score ?? 0) < 80).length,
+    },
     { faixa: "80–100", total: ws.filter((w) => (w.efficiency_score ?? 0) >= 80).length },
   ];
 
@@ -101,14 +125,61 @@ function DashboardPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Obras monitoradas" value={fmtNumber(s.total_works)} icon={HardHat} tone="primary" helper="Contratos sob análise" />
-        <StatCard label="Score ARGUS médio" value={`${Math.round(s.average_efficiency_score)} / 100`} icon={Gauge} tone="success" helper="Eficiência composta" />
-        <StatCard label="Alertas críticos" value={fmtNumber(s.critical_alerts)} icon={AlertTriangle} tone="danger" helper="Risco alto detectado" />
-        <StatCard label="Obras atrasadas" value={fmtNumber(s.delayed_works)} icon={Activity} tone="warning" helper="Acima da tolerância de 90 dias" />
-        <StatCard label="Valor contratado total" value={fmtBRL(valorTotal)} icon={Wallet} tone="accent" helper="Somatório dos contratos" />
-        <StatCard label="Valor liquidado/pago" value={fmtBRL(valorPago)} icon={Wallet} tone="primary" helper="Execução financeira" />
-        <StatCard label="Próxima atualização" value={formatDateBR(etlData.next_run_time)} icon={Activity} helper={etlData.time_left ?? "ETL a cada 15 dias"} />
-        <StatCard label="Pipeline ETL" value={etlData.scheduled ? "Ativo" : "—"} icon={Activity} tone={etlData.scheduled ? "success" : "warning"} helper="Sincronização automática" />
+        <StatCard
+          label="Obras monitoradas"
+          value={fmtNumber(s.total_works)}
+          icon={HardHat}
+          tone="primary"
+          helper="Contratos sob análise"
+        />
+        <StatCard
+          label="Score ARGUS médio"
+          value={`${Math.round(s.average_efficiency_score)} / 100`}
+          icon={Gauge}
+          tone="success"
+          helper="Eficiência composta"
+        />
+        <StatCard
+          label="Alertas críticos"
+          value={fmtNumber(s.critical_alerts)}
+          icon={AlertTriangle}
+          tone="danger"
+          helper="Risco alto detectado"
+        />
+        <StatCard
+          label="Obras atrasadas"
+          value={fmtNumber(s.delayed_works)}
+          icon={Activity}
+          tone="warning"
+          helper="Acima da tolerância de 90 dias"
+        />
+        <StatCard
+          label="Valor contratado total"
+          value={fmtBRL(valorTotal)}
+          icon={Wallet}
+          tone="accent"
+          helper="Somatório dos contratos"
+        />
+        <StatCard
+          label="Valor liquidado/pago"
+          value={fmtBRL(valorPago)}
+          icon={Wallet}
+          tone="primary"
+          helper="Execução financeira"
+        />
+        <StatCard
+          label="Próxima atualização"
+          value={formatDateBR(etlData.next_run_time)}
+          icon={Activity}
+          helper={etlData.time_left ?? "ETL a cada 15 dias"}
+        />
+        <StatCard
+          label="Pipeline ETL"
+          value={etlData.scheduled ? "Ativo" : "—"}
+          icon={Activity}
+          tone={etlData.scheduled ? "success" : "warning"}
+          helper="Sincronização automática"
+        />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -116,7 +187,9 @@ function DashboardPage() {
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Distribuição por nível de risco ARGUS</h3>
             <Button asChild variant="ghost" size="sm">
-              <Link to="/obras"><ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
+              <Link to="/obras">
+                <ArrowRight className="ml-1 h-3.5 w-3.5" />
+              </Link>
             </Button>
           </div>
           <div className="h-64">
@@ -141,7 +214,14 @@ function DashboardPage() {
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={scoreDist} dataKey="total" nameKey="faixa" innerRadius={45} outerRadius={85} paddingAngle={2}>
+                <Pie
+                  data={scoreDist}
+                  dataKey="total"
+                  nameKey="faixa"
+                  innerRadius={45}
+                  outerRadius={85}
+                  paddingAngle={2}
+                >
                   {scoreDist.map((d) => (
                     <Cell key={d.faixa} fill={getScoreHex(parseInt(d.faixa))} />
                   ))}
@@ -161,7 +241,9 @@ function DashboardPage() {
             <h3 className="text-sm font-semibold text-foreground">Composição do Índice ARGUS</h3>
           </div>
           <Button asChild variant="ghost" size="sm">
-            <Link to="/metodologia">Ver metodologia completa <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
+            <Link to="/metodologia">
+              Ver metodologia completa <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </Link>
           </Button>
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
@@ -186,7 +268,11 @@ function DashboardPage() {
             <ul className="divide-y divide-border">
               {rankings.data.worst.slice(0, 5).map((w) => (
                 <li key={w.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                  <Link to="/obras/$id" params={{ id: String(w.id) }} className="min-w-0 flex-1 truncate font-medium text-foreground hover:text-primary">
+                  <Link
+                    to="/obras/$id"
+                    params={{ id: String(w.id) }}
+                    className="min-w-0 flex-1 truncate font-medium text-foreground hover:text-primary"
+                  >
                     {w.object_description}
                   </Link>
                   <ScoreBadge score={w.efficiency_score ?? 0} showLabel={false} />
@@ -207,7 +293,9 @@ function DashboardPage() {
               {contratadoTop.map((c, i) => (
                 <li key={c.name} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">{i + 1}</span>
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
+                      {i + 1}
+                    </span>
                     <span className="truncate font-medium text-foreground">{c.name}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">{c.total} contratos</span>
