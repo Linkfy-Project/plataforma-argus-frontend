@@ -1,9 +1,4 @@
-export type ObraStatus =
-  | "Planejada"
-  | "Em andamento"
-  | "Concluída"
-  | "Atrasada"
-  | "Paralisada";
+export type ObraStatus = "Planejada" | "Em andamento" | "Concluída" | "Atrasada" | "Paralisada";
 export type AlertaNivel = "Baixo" | "Médio" | "Alto" | "Crítico";
 
 export interface Obra {
@@ -150,8 +145,18 @@ export interface AnalyticsSummary {
 }
 
 export interface AnalyticsRankings {
-  best: Array<Pick<WorkRead, "id" | "municipio" | "object_description" | "contractor_name" | "efficiency_score">>;
-  worst: Array<Pick<WorkRead, "id" | "municipio" | "object_description" | "contractor_name" | "efficiency_score">>;
+  best: Array<
+    Pick<
+      WorkRead,
+      "id" | "municipio" | "object_description" | "contractor_name" | "efficiency_score"
+    >
+  >;
+  worst: Array<
+    Pick<
+      WorkRead,
+      "id" | "municipio" | "object_description" | "contractor_name" | "efficiency_score"
+    >
+  >;
 }
 
 export interface ScoreAlert {
@@ -219,4 +224,13 @@ export interface AlertWithWork extends AlertRead {
   contractor_name: string | null;
   municipio: string;
   efficiency_score: number | null;
+}
+
+/** Resposta paginada do backend para listagem de obras. */
+export interface PaginatedWorks {
+  items: WorkRead[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
 }

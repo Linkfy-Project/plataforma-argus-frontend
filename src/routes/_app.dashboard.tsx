@@ -45,7 +45,7 @@ export const Route = createFileRoute("/_app/dashboard")({
 const RISK_COLORS: Record<string, string> = {
   Baixo: "#22C55E",
   Atenção: "#F59E0B",
-  Alto: "##94A3B8",
+  Alto: "#lightblue",
   Crítico: "#DC2626",
   Indefinido: "#94A3B8",
 };
@@ -56,8 +56,8 @@ function DashboardPage() {
     queryFn: () => analyticsService.summary({ municipio: "macae" }),
   });
   const works = useQuery({
-    queryKey: ["works", { municipio: "macae", limit: 1000 }],
-    queryFn: () => worksService.list({ municipio: "macae", limit: 1000 }),
+    queryKey: ["works", { municipio: "macae" }],
+    queryFn: () => worksService.listAll({ municipio: "macae" }),
   });
   const rankings = useQuery({
     queryKey: ["analytics", "rankings", 5],
@@ -88,11 +88,13 @@ function DashboardPage() {
     { faixa: "0–39", total: ws.filter((w) => (w.efficiency_score ?? 0) < 40).length },
     {
       faixa: "40–59",
-      total: ws.filter((w) => (w.efficiency_score ?? 0) >= 40 && (w.efficiency_score ?? 0) < 60).length,
+      total: ws.filter((w) => (w.efficiency_score ?? 0) >= 40 && (w.efficiency_score ?? 0) < 60)
+        .length,
     },
     {
       faixa: "60–79",
-      total: ws.filter((w) => (w.efficiency_score ?? 0) >= 60 && (w.efficiency_score ?? 0) < 80).length,
+      total: ws.filter((w) => (w.efficiency_score ?? 0) >= 60 && (w.efficiency_score ?? 0) < 80)
+        .length,
     },
     { faixa: "80–100", total: ws.filter((w) => (w.efficiency_score ?? 0) >= 80).length },
   ];
@@ -185,7 +187,9 @@ function DashboardPage() {
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground">Distribuição por nível de risco ARGUS</h3>
+            <h3 className="text-sm font-semibold text-foreground">
+              Distribuição por nível de risco ARGUS
+            </h3>
             <Button asChild variant="ghost" size="sm">
               <Link to="/obras">
                 <ArrowRight className="ml-1 h-3.5 w-3.5" />
@@ -250,7 +254,9 @@ function DashboardPage() {
           {ARGUS_PILLARS.map((p) => (
             <div key={p.key} className="rounded-lg border border-border bg-background/50 p-3">
               <p className="text-xs font-medium text-muted-foreground">{p.label}</p>
-              <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">{Math.round(p.weight * 100)}%</p>
+              <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">
+                {Math.round(p.weight * 100)}%
+              </p>
               <Progress value={p.weight * 100} className="mt-2 h-1.5" />
             </div>
           ))}

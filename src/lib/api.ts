@@ -1,11 +1,5 @@
 import axios, { AxiosError } from "axios";
-import {
-  mockObras,
-  mockMunicipios,
-  mockContratos,
-  mockAlertas,
-  mockSummary,
-} from "@/data/mock";
+import { mockObras, mockMunicipios, mockContratos, mockAlertas, mockSummary } from "@/data/mock";
 import type {
   Obra,
   Municipio,
@@ -20,6 +14,7 @@ import type {
   ScoreExplain,
   ScoringRules,
   SyncStatus,
+  PaginatedWorks,
 } from "@/types";
 
 export type GeoFeatureCollection = {
@@ -67,8 +62,7 @@ export type GeoFeatureCollection = {
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) || "/api/argus";
 
-export const USE_MOCK =
-  String(import.meta.env.VITE_USE_MOCK ?? "").toLowerCase() === "true";
+export const USE_MOCK = String(import.meta.env.VITE_USE_MOCK ?? "").toLowerCase() === "true";
 
 /** Render free pode levar ~50s para acordar (cold start). */
 const COLD_START_TIMEOUT_MS = 90_000;
@@ -256,12 +250,8 @@ function avg(nums: number[]): number {
 }
 
 function summaryFromAnalytics(s: AnalyticsSummary, works?: WorkRead[]): DashboardSummary {
-  const totalContratado = works
-    ? works.reduce((acc, w) => acc + (w.contract_value ?? 0), 0)
-    : 0;
-  const municipios = works
-    ? new Set(works.map((w) => w.municipio)).size
-    : 0;
+  const totalContratado = works ? works.reduce((acc, w) => acc + (w.contract_value ?? 0), 0) : 0;
+  const municipios = works ? new Set(works.map((w) => w.municipio)).size : 0;
   const concluidas = works ? works.filter((w) => !!w.finished_at).length : 0;
   const paralisadas = works
     ? works.filter((w) => (w.status ?? "").toLowerCase().includes("paralis")).length
@@ -287,8 +277,13 @@ export interface WorksListParams {
   municipio?: string;
   min_score?: number;
   max_score?: number;
-  limit?: number;
-  offset?: number;
+  status?: string;
+  search?: string;
+  min_value?: number;
+  max_value?: number;
+  has_score?: boolean;
+  page?: number;
+  per_page?: number;
 }
 
 export const healthService = {
@@ -301,43 +296,49 @@ export const healthService = {
 };
 
 export const worksService = {
+  /** Busca página única — retorna resposta paginada completa. */
   list: (params: WorksListParams = {}) =>
-    callOrMock<WorkRead[]>(
+    callOrMock<PaginatedWorks>(
       async () => {
-        // Backend limita `limit` a 500. Quando o caller pedir mais,
-        // paginamos automaticamente via `offset` até esgotar o dataset
-        // (ou atingir o limite solicitado).
-        const requested = params.limit ?? 100;
-        const pageSize = Math.min(500, requested);
-        let offset = params.offset ?? 0;
-        const out: WorkRead[] = [];
-        // Hard cap para evitar loops acidentais.
-        const hardCap = Math.min(requested, 5000);
-        while (out.length < hardCap) {
-          const remaining = hardCap - out.length;
-          const thisLimit = Math.min(pageSize, remaining);
-          const { data } = await api.get<WorkRead[]>("/works", {
-            params: { ...params, limit: thisLimit, offset },
-          });
-          out.push(...data);
-          if (data.length < thisLimit) break; // fim do dataset
-          offset += data.length;
-        }
-        return out;
+        const { data } = await api.get<PaginatedWorks>("/works", {
+          params: {
+            ...(params.municipio ? { municipio: params.municipio } : {}),
+            ...(params.min_score != null ? { min_score: params.min_score } : {}),
+            ...(params.max_score != null ? { max_score: params.max_score } : {}),
+            ...(params.status ? { status: params.status } : {}),
+            ...(params.search ? { search: params.search } : {}),
+            ...(params.min_value != null ? { min_value: params.min_value } : {}),
+            ...(params.max_value != null ? { max_value: params.max_value } : {}),
+            ...(params.has_score != null ? { has_score: params.has_score } : {}),
+            page: params.page ?? 1,
+            per_page: params.per_page ?? 25,
+          },
+        });
+        return data;
       },
-      [],
+      { items: [], total: 0, page: 1, per_page: 25, total_pages: 0 },
     ),
+
+  /** Busca TODAS as páginas iterando automaticamente (para agregações). */
+  listAll: async (params: Omit<WorksListParams, "page" | "per_page"> = {}): Promise<WorkRead[]> => {
+    const out: WorkRead[] = [];
+    let page = 1;
+    const perPage = 1000;
+    while (true) {
+      const resp = await worksService.list({ ...params, page, per_page: perPage });
+      out.push(...resp.items);
+      if (out.length >= resp.total || resp.items.length < perPage) break;
+      page++;
+    }
+    return out;
+  },
   get: (id: string | number) =>
-    callOrMock<WorkRead | null>(
-      async () => (await api.get<WorkRead>(`/works/${id}`)).data,
-      null,
-    ),
+    callOrMock<WorkRead | null>(async () => (await api.get<WorkRead>(`/works/${id}`)).data, null),
   create: async (payload: Partial<WorkRead>): Promise<WorkRead> =>
     (await api.post<WorkRead>("/works", payload)).data,
   recompute: async (id: string | number): Promise<WorkRead> =>
     (await api.post<WorkRead>(`/works/${id}/recompute`)).data,
-  recomputeAll: async (): Promise<unknown> =>
-    (await api.post("/works/recompute-all")).data,
+  recomputeAll: async (): Promise<unknown> => (await api.post("/works/recompute-all")).data,
   scoreExplain: (id: string | number) =>
     callOrMock<ScoreExplain | null>(
       async () => (await api.get<ScoreExplain>(`/works/${id}/score-explain`)).data,
@@ -381,23 +382,32 @@ export const analyticsService = {
 
 export const etlService = {
   syncStatus: () =>
-    callOrMock<SyncStatus>(
-      async () => (await api.get<SyncStatus>("/etl/sync-status")).data,
-      {},
-    ),
+    callOrMock<SyncStatus>(async () => (await api.get<SyncStatus>("/etl/sync-status")).data, {}),
   syncPublicData: async (params: { municipio?: string; ano?: number } = {}) =>
-    (await api.post("/etl/sync-public-data", null, {
-      params: { municipio: params.municipio ?? "Macae", ...(params.ano ? { ano: params.ano } : {}) },
-    })).data,
+    (
+      await api.post("/etl/sync-public-data", null, {
+        params: {
+          municipio: params.municipio ?? "Macae",
+          ...(params.ano ? { ano: params.ano } : {}),
+        },
+      })
+    ).data,
   runTcerj: async (params: { municipio?: string; ano?: number } = {}) =>
-    (await api.post("/etl/tcerj/run", null, {
-      params: { municipio: params.municipio ?? "Macae", ...(params.ano ? { ano: params.ano } : {}) },
-    })).data,
+    (
+      await api.post("/etl/tcerj/run", null, {
+        params: {
+          municipio: params.municipio ?? "Macae",
+          ...(params.ano ? { ano: params.ano } : {}),
+        },
+      })
+    ).data,
   runMacaePortal: async () => (await api.post("/etl/macae-portal/run")).data,
   importCsv: async (params: { path: string; municipio?: string }) =>
-    (await api.post("/etl/import-csv", null, {
-      params: { path: params.path, municipio: params.municipio ?? "Macae" },
-    })).data,
+    (
+      await api.post("/etl/import-csv", null, {
+        params: { path: params.path, municipio: params.municipio ?? "Macae" },
+      })
+    ).data,
 };
 
 export const geoService = {
@@ -428,27 +438,54 @@ export interface ObrasListParams {
   municipio?: string;
   status?: string;
   q?: string;
-  limit?: number;
-  offset?: number;
+  page?: number;
+  per_page?: number;
+  min_score?: number;
+  max_score?: number;
+  min_value?: number;
+  max_value?: number;
+  has_score?: boolean;
 }
 
+export type ObrasPaginatedResult = {
+  items: Obra[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+};
+
 export const obrasService = {
-  list: async (params: ObrasListParams = {}): Promise<Obra[]> => {
-    const works = await worksService.list({
+  /** Busca paginada de obras com filtros delegados ao backend. */
+  list: async (params: ObrasListParams = {}): Promise<ObrasPaginatedResult> => {
+    const resp = await worksService.list({
       municipio: params.municipio,
-      limit: params.limit ?? 500,
-      offset: params.offset ?? 0,
+      status: params.status,
+      search: params.q,
+      page: params.page ?? 1,
+      per_page: params.per_page ?? 25,
+      ...(params.min_score != null ? { min_score: params.min_score } : {}),
+      ...(params.max_score != null ? { max_score: params.max_score } : {}),
+      ...(params.min_value != null ? { min_value: params.min_value } : {}),
+      ...(params.max_value != null ? { max_value: params.max_value } : {}),
+      ...(params.has_score != null ? { has_score: params.has_score } : {}),
     });
-    const base = USE_MOCK && works.length === 0 ? mockObras : works.map(adaptObra);
-    return base.filter((o) => {
-      if (params.status && o.status !== params.status) return false;
-      if (params.q) {
-        const k = params.q.toLowerCase();
-        if (!`${o.nome} ${o.municipio} ${o.empresa_contratada}`.toLowerCase().includes(k))
-          return false;
-      }
-      return true;
-    });
+    if (USE_MOCK && resp.items.length === 0) {
+      return {
+        items: mockObras,
+        total: mockObras.length,
+        page: 1,
+        per_page: mockObras.length,
+        total_pages: 1,
+      };
+    }
+    return {
+      items: resp.items.map(adaptObra),
+      total: resp.total,
+      page: resp.page,
+      per_page: resp.per_page,
+      total_pages: resp.total_pages,
+    };
   },
   get: async (id: string): Promise<Obra | undefined> => {
     const w = await worksService.get(id);
@@ -459,7 +496,7 @@ export const obrasService = {
 
 export const municipiosService = {
   list: async (): Promise<Municipio[]> => {
-    const works = await worksService.list({ limit: 1000 });
+    const works = await worksService.listAll({});
     if (USE_MOCK && works.length === 0) return mockMunicipios;
     return municipiosFromWorks(works);
   },
@@ -467,7 +504,7 @@ export const municipiosService = {
 
 export const contratosService = {
   list: async (_params: { q?: string } = {}): Promise<Contrato[]> => {
-    const works = await worksService.list({ limit: 1000 });
+    const works = await worksService.listAll({});
     if (USE_MOCK && works.length === 0) return mockContratos;
     return contratosFromWorks(works);
   },
@@ -475,7 +512,7 @@ export const contratosService = {
 
 export const alertasService = {
   list: async (_params: { nivel?: string } = {}): Promise<Alerta[]> => {
-    const works = await worksService.list({ limit: 1000 });
+    const works = await worksService.listAll({});
     if (USE_MOCK && works.length === 0) return mockAlertas;
     return alertasFromWorks(works);
   },
@@ -484,10 +521,7 @@ export const alertasService = {
 export const dashboardService = {
   getSummary: async (): Promise<DashboardSummary> => {
     try {
-      const [s, works] = await Promise.all([
-        analyticsService.summary(),
-        worksService.list({ limit: 1000 }),
-      ]);
+      const [s, works] = await Promise.all([analyticsService.summary(), worksService.listAll({})]);
       return summaryFromAnalytics(s, works);
     } catch {
       return mockSummary;

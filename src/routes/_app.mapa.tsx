@@ -17,7 +17,7 @@ function MapaPage() {
   });
   const works = useQuery({
     queryKey: ["mapa", "works"],
-    queryFn: () => worksService.list({ limit: 1000 }),
+    queryFn: () => worksService.listAll({}),
   });
 
   if (geo.isLoading || works.isLoading) return <LoadingState rows={6} />;
