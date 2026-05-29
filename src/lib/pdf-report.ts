@@ -210,7 +210,7 @@ function addWorksTable(doc: jsPDF, works: WorkRead[], y: number): number {
       6: { halign: "center" },
       7: { halign: "center" },
     },
-    didParseCell: (data) => {
+    didParseCell: (data: any) => {
       if (data.column.index === 6 && data.section === "body") {
         const risk = data.cell.raw as string;
         if (risk === "Crítico") data.cell.styles.textColor = DANGER_COLOR;
