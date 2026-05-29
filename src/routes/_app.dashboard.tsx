@@ -27,6 +27,7 @@ import {
   YAxis,
 } from "recharts";
 import { PageHeader } from "@/components/argus/PageHeader";
+import { PredictiveRiskIndicator } from "@/components/argus/PredictiveRiskBadge";
 import { StatCard } from "@/components/argus/StatCard";
 import { LoadingState, ErrorState } from "@/components/argus/EmptyState";
 import { ScoreBadge } from "@/components/argus/ScoreBadge";
@@ -45,7 +46,7 @@ export const Route = createFileRoute("/_app/dashboard")({
 const RISK_COLORS: Record<string, string> = {
   Baixo: "#22C55E",
   Atenção: "#F59E0B",
-  Alto: "#lightblue",
+  Alto: "#F97316",
   Crítico: "#DC2626",
   Indefinido: "#94A3B8",
 };
@@ -272,18 +273,28 @@ function DashboardPage() {
             <p className="text-sm text-muted-foreground">Sem ranking disponível.</p>
           ) : (
             <ul className="divide-y divide-border">
-              {rankings.data.worst.slice(0, 5).map((w) => (
-                <li key={w.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                  <Link
-                    to="/obras/$id"
-                    params={{ id: String(w.id) }}
-                    className="min-w-0 flex-1 truncate font-medium text-foreground hover:text-primary"
-                  >
-                    {w.object_description}
-                  </Link>
-                  <ScoreBadge score={w.efficiency_score ?? 0} showLabel={false} />
-                </li>
-              ))}
+              {rankings.data.worst.slice(0, 5).map((w) => {
+                const fullWork = ws.find((fw) => fw.id === w.id);
+                return (
+                  <li key={w.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                    <Link
+                      to="/obras/$id"
+                      params={{ id: String(w.id) }}
+                      className="min-w-0 flex-1 truncate font-medium text-foreground hover:text-primary"
+                    >
+                      {w.object_description}
+                    </Link>
+                    <div className="flex items-center gap-2">
+                      <PredictiveRiskIndicator
+                        delayProbability={fullWork?.risk_delay_probability}
+                        costProbability={fullWork?.risk_cost_probability}
+                        reworkProbability={fullWork?.risk_rework_probability}
+                      />
+                      <ScoreBadge score={w.efficiency_score ?? 0} showLabel={false} />
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

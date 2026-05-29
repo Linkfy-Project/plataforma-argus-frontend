@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, HardHat, Building2, FileText, AlertTriangle, BarChart3,
-  Settings, Shield, Map, MapPinned, BookOpen, Database,
+  Settings, Shield, Map, MapPinned, BookOpen, Database, Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ export const NAV_ITEMS = [
   { to: "/municipios", label: "Municípios", icon: Building2 },
   { to: "/contratos", label: "Contratos", icon: FileText },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
+  { to: "/cidadao", label: "Portal do Cidadão", icon: Users },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
 

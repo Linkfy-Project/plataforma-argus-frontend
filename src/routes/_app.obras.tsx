@@ -1,10 +1,11 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Eye, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Search, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/argus/PageHeader";
 import { StatusBadge } from "@/components/argus/StatusBadge";
 import { EmptyState, LoadingState, ErrorState } from "@/components/argus/EmptyState";
+import { ObraDetailModal } from "@/components/argus/ObraDetailModal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { obrasService, analyticsService } from "@/lib/api";
+import { PredictiveRiskIndicator } from "@/components/argus/PredictiveRiskBadge";
 import { fmtBRL, fmtDate, fmtPct } from "@/lib/format";
 import type { ObraStatus } from "@/types";
 
@@ -46,8 +48,8 @@ function scoreBucketParams(bucket: string) {
 }
 
 function ObrasPage() {
-  const navigate = useNavigate();
   const [q, setQ] = useState("");
+  const [modalObraId, setModalObraId] = useState<string | null>(null);
   const [debouncedQ, setDebouncedQ] = useState("");
   const [mun, setMun] = useState<string>("todos");
   const [status, setStatus] = useState<string>("todos");
@@ -122,6 +124,11 @@ function ObrasPage() {
 
   return (
     <div>
+      <ObraDetailModal
+        obraId={modalObraId}
+        open={!!modalObraId}
+        onOpenChange={(open) => { if (!open) setModalObraId(null); }}
+      />
       <PageHeader title="Obras Públicas" description="Listagem completa das obras monitoradas." />
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -237,6 +244,7 @@ function ObrasPage() {
                   <th className="px-4 py-3 font-medium text-right">Valor contratado</th>
                   <th className="px-4 py-3 font-medium text-right">Valor executado</th>
                   <th className="px-4 py-3 font-medium w-40">Execução</th>
+                  <th className="px-4 py-3 font-medium">Risco IA</th>
                   <th className="px-4 py-3 font-medium">Início</th>
                   <th className="px-4 py-3 font-medium">Previsão</th>
                   <th className="px-4 py-3 font-medium text-right">Ações</th>
@@ -246,7 +254,7 @@ function ObrasPage() {
                 {items.map((o) => (
                   <tr
                     key={o.id}
-                    onClick={() => navigate({ to: "/obras/$id", params: { id: o.id } })}
+                    onClick={() => setModalObraId(o.id)}
                     className="cursor-pointer transition-colors hover:bg-primary/5"
                   >
                     <td className="px-4 py-3 font-medium text-foreground">{o.nome}</td>
@@ -268,15 +276,20 @@ function ObrasPage() {
                         </span>
                       </div>
                     </td>
+                    <td className="px-4 py-3">
+                      <PredictiveRiskIndicator
+                        delayProbability={o.risco_atraso}
+                        costProbability={o.risco_custo}
+                        reworkProbability={o.risco_retrabalho}
+                      />
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">{fmtDate(o.data_inicio)}</td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {fmtDate(o.data_fim_prevista)}
                     </td>
                     <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                      <Button asChild variant="ghost" size="sm">
-                        <Link to="/obras/$id" params={{ id: o.id }}>
-                          <Eye className="mr-1 h-4 w-4" /> Detalhes
-                        </Link>
+                      <Button variant="ghost" size="sm" onClick={() => setModalObraId(o.id)}>
+                        <Eye className="mr-1 h-4 w-4" /> Detalhes
                       </Button>
                     </td>
                   </tr>
