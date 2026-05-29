@@ -10,8 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as CidadaoRouteImport } from './routes/cidadao'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CidadaoIndexRouteImport } from './routes/cidadao.index'
+import { Route as CidadaoTransparenciaRouteImport } from './routes/cidadao.transparencia'
+import { Route as CidadaoPainelRouteImport } from './routes/cidadao.painel'
+import { Route as CidadaoObrasRouteImport } from './routes/cidadao.obras'
+import { Route as CidadaoNotificacoesRouteImport } from './routes/cidadao.notificacoes'
 import { Route as AppRelatoriosRouteImport } from './routes/_app.relatorios'
 import { Route as AppObrasRouteImport } from './routes/_app.obras'
 import { Route as AppMunicipiosRouteImport } from './routes/_app.municipios'
@@ -23,12 +29,18 @@ import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppContratosRouteImport } from './routes/_app.contratos'
 import { Route as AppConfiguracoesRouteImport } from './routes/_app.configuracoes'
 import { Route as AppAlertasRouteImport } from './routes/_app.alertas'
+import { Route as CidadaoObrasIdRouteImport } from './routes/cidadao.obras.$id'
 import { Route as ApiArgusSplatRouteImport } from './routes/api.argus.$'
 import { Route as AppObrasIdRouteImport } from './routes/_app.obras.$id'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CidadaoRoute = CidadaoRouteImport.update({
+  id: '/cidadao',
+  path: '/cidadao',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -39,6 +51,31 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const CidadaoIndexRoute = CidadaoIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CidadaoRoute,
+} as any)
+const CidadaoTransparenciaRoute = CidadaoTransparenciaRouteImport.update({
+  id: '/transparencia',
+  path: '/transparencia',
+  getParentRoute: () => CidadaoRoute,
+} as any)
+const CidadaoPainelRoute = CidadaoPainelRouteImport.update({
+  id: '/painel',
+  path: '/painel',
+  getParentRoute: () => CidadaoRoute,
+} as any)
+const CidadaoObrasRoute = CidadaoObrasRouteImport.update({
+  id: '/obras',
+  path: '/obras',
+  getParentRoute: () => CidadaoRoute,
+} as any)
+const CidadaoNotificacoesRoute = CidadaoNotificacoesRouteImport.update({
+  id: '/notificacoes',
+  path: '/notificacoes',
+  getParentRoute: () => CidadaoRoute,
 } as any)
 const AppRelatoriosRoute = AppRelatoriosRouteImport.update({
   id: '/relatorios',
@@ -95,6 +132,11 @@ const AppAlertasRoute = AppAlertasRouteImport.update({
   path: '/alertas',
   getParentRoute: () => AppRoute,
 } as any)
+const CidadaoObrasIdRoute = CidadaoObrasIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => CidadaoObrasRoute,
+} as any)
 const ApiArgusSplatRoute = ApiArgusSplatRouteImport.update({
   id: '/api/argus/$',
   path: '/api/argus/$',
@@ -108,6 +150,7 @@ const AppObrasIdRoute = AppObrasIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/cidadao': typeof CidadaoRouteWithChildren
   '/login': typeof LoginRoute
   '/alertas': typeof AppAlertasRoute
   '/configuracoes': typeof AppConfiguracoesRoute
@@ -120,8 +163,14 @@ export interface FileRoutesByFullPath {
   '/municipios': typeof AppMunicipiosRoute
   '/obras': typeof AppObrasRouteWithChildren
   '/relatorios': typeof AppRelatoriosRoute
+  '/cidadao/notificacoes': typeof CidadaoNotificacoesRoute
+  '/cidadao/obras': typeof CidadaoObrasRouteWithChildren
+  '/cidadao/painel': typeof CidadaoPainelRoute
+  '/cidadao/transparencia': typeof CidadaoTransparenciaRoute
+  '/cidadao/': typeof CidadaoIndexRoute
   '/obras/$id': typeof AppObrasIdRoute
   '/api/argus/$': typeof ApiArgusSplatRoute
+  '/cidadao/obras/$id': typeof CidadaoObrasIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -137,13 +186,20 @@ export interface FileRoutesByTo {
   '/municipios': typeof AppMunicipiosRoute
   '/obras': typeof AppObrasRouteWithChildren
   '/relatorios': typeof AppRelatoriosRoute
+  '/cidadao/notificacoes': typeof CidadaoNotificacoesRoute
+  '/cidadao/obras': typeof CidadaoObrasRouteWithChildren
+  '/cidadao/painel': typeof CidadaoPainelRoute
+  '/cidadao/transparencia': typeof CidadaoTransparenciaRoute
+  '/cidadao': typeof CidadaoIndexRoute
   '/obras/$id': typeof AppObrasIdRoute
   '/api/argus/$': typeof ApiArgusSplatRoute
+  '/cidadao/obras/$id': typeof CidadaoObrasIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/cidadao': typeof CidadaoRouteWithChildren
   '/login': typeof LoginRoute
   '/_app/alertas': typeof AppAlertasRoute
   '/_app/configuracoes': typeof AppConfiguracoesRoute
@@ -156,13 +212,20 @@ export interface FileRoutesById {
   '/_app/municipios': typeof AppMunicipiosRoute
   '/_app/obras': typeof AppObrasRouteWithChildren
   '/_app/relatorios': typeof AppRelatoriosRoute
+  '/cidadao/notificacoes': typeof CidadaoNotificacoesRoute
+  '/cidadao/obras': typeof CidadaoObrasRouteWithChildren
+  '/cidadao/painel': typeof CidadaoPainelRoute
+  '/cidadao/transparencia': typeof CidadaoTransparenciaRoute
+  '/cidadao/': typeof CidadaoIndexRoute
   '/_app/obras/$id': typeof AppObrasIdRoute
   '/api/argus/$': typeof ApiArgusSplatRoute
+  '/cidadao/obras/$id': typeof CidadaoObrasIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/cidadao'
     | '/login'
     | '/alertas'
     | '/configuracoes'
@@ -175,8 +238,14 @@ export interface FileRouteTypes {
     | '/municipios'
     | '/obras'
     | '/relatorios'
+    | '/cidadao/notificacoes'
+    | '/cidadao/obras'
+    | '/cidadao/painel'
+    | '/cidadao/transparencia'
+    | '/cidadao/'
     | '/obras/$id'
     | '/api/argus/$'
+    | '/cidadao/obras/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -192,12 +261,19 @@ export interface FileRouteTypes {
     | '/municipios'
     | '/obras'
     | '/relatorios'
+    | '/cidadao/notificacoes'
+    | '/cidadao/obras'
+    | '/cidadao/painel'
+    | '/cidadao/transparencia'
+    | '/cidadao'
     | '/obras/$id'
     | '/api/argus/$'
+    | '/cidadao/obras/$id'
   id:
     | '__root__'
     | '/'
     | '/_app'
+    | '/cidadao'
     | '/login'
     | '/_app/alertas'
     | '/_app/configuracoes'
@@ -210,13 +286,20 @@ export interface FileRouteTypes {
     | '/_app/municipios'
     | '/_app/obras'
     | '/_app/relatorios'
+    | '/cidadao/notificacoes'
+    | '/cidadao/obras'
+    | '/cidadao/painel'
+    | '/cidadao/transparencia'
+    | '/cidadao/'
     | '/_app/obras/$id'
     | '/api/argus/$'
+    | '/cidadao/obras/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  CidadaoRoute: typeof CidadaoRouteWithChildren
   LoginRoute: typeof LoginRoute
   ApiArgusSplatRoute: typeof ApiArgusSplatRoute
 }
@@ -228,6 +311,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cidadao': {
+      id: '/cidadao'
+      path: '/cidadao'
+      fullPath: '/cidadao'
+      preLoaderRoute: typeof CidadaoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -243,6 +333,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/cidadao/': {
+      id: '/cidadao/'
+      path: '/'
+      fullPath: '/cidadao/'
+      preLoaderRoute: typeof CidadaoIndexRouteImport
+      parentRoute: typeof CidadaoRoute
+    }
+    '/cidadao/transparencia': {
+      id: '/cidadao/transparencia'
+      path: '/transparencia'
+      fullPath: '/cidadao/transparencia'
+      preLoaderRoute: typeof CidadaoTransparenciaRouteImport
+      parentRoute: typeof CidadaoRoute
+    }
+    '/cidadao/painel': {
+      id: '/cidadao/painel'
+      path: '/painel'
+      fullPath: '/cidadao/painel'
+      preLoaderRoute: typeof CidadaoPainelRouteImport
+      parentRoute: typeof CidadaoRoute
+    }
+    '/cidadao/obras': {
+      id: '/cidadao/obras'
+      path: '/obras'
+      fullPath: '/cidadao/obras'
+      preLoaderRoute: typeof CidadaoObrasRouteImport
+      parentRoute: typeof CidadaoRoute
+    }
+    '/cidadao/notificacoes': {
+      id: '/cidadao/notificacoes'
+      path: '/notificacoes'
+      fullPath: '/cidadao/notificacoes'
+      preLoaderRoute: typeof CidadaoNotificacoesRouteImport
+      parentRoute: typeof CidadaoRoute
     }
     '/_app/relatorios': {
       id: '/_app/relatorios'
@@ -321,6 +446,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAlertasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/cidadao/obras/$id': {
+      id: '/cidadao/obras/$id'
+      path: '/$id'
+      fullPath: '/cidadao/obras/$id'
+      preLoaderRoute: typeof CidadaoObrasIdRouteImport
+      parentRoute: typeof CidadaoObrasRoute
+    }
     '/api/argus/$': {
       id: '/api/argus/$'
       path: '/api/argus/$'
@@ -380,9 +512,41 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface CidadaoObrasRouteChildren {
+  CidadaoObrasIdRoute: typeof CidadaoObrasIdRoute
+}
+
+const CidadaoObrasRouteChildren: CidadaoObrasRouteChildren = {
+  CidadaoObrasIdRoute: CidadaoObrasIdRoute,
+}
+
+const CidadaoObrasRouteWithChildren = CidadaoObrasRoute._addFileChildren(
+  CidadaoObrasRouteChildren,
+)
+
+interface CidadaoRouteChildren {
+  CidadaoNotificacoesRoute: typeof CidadaoNotificacoesRoute
+  CidadaoObrasRoute: typeof CidadaoObrasRouteWithChildren
+  CidadaoPainelRoute: typeof CidadaoPainelRoute
+  CidadaoTransparenciaRoute: typeof CidadaoTransparenciaRoute
+  CidadaoIndexRoute: typeof CidadaoIndexRoute
+}
+
+const CidadaoRouteChildren: CidadaoRouteChildren = {
+  CidadaoNotificacoesRoute: CidadaoNotificacoesRoute,
+  CidadaoObrasRoute: CidadaoObrasRouteWithChildren,
+  CidadaoPainelRoute: CidadaoPainelRoute,
+  CidadaoTransparenciaRoute: CidadaoTransparenciaRoute,
+  CidadaoIndexRoute: CidadaoIndexRoute,
+}
+
+const CidadaoRouteWithChildren =
+  CidadaoRoute._addFileChildren(CidadaoRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  CidadaoRoute: CidadaoRouteWithChildren,
   LoginRoute: LoginRoute,
   ApiArgusSplatRoute: ApiArgusSplatRoute,
 }

@@ -351,6 +351,21 @@ export const worksService = {
     ),
 };
 
+export interface TrendPoint {
+  month: string;
+  avg_score: number;
+  count: number;
+  total_value: number;
+}
+
+export interface InterMunicipalData {
+  municipio: string;
+  total_works: number;
+  avg_score: number;
+  total_value: number;
+  avg_delay_risk: number;
+}
+
 export const analyticsService = {
   summary: (params: { municipio?: string } = {}) =>
     callOrMock<AnalyticsSummary>(
@@ -377,6 +392,21 @@ export const analyticsService = {
     callOrMock<GeoFeatureCollection>(
       async () => (await api.get<GeoFeatureCollection>("/analytics/map/geojson")).data,
       { type: "FeatureCollection", features: [] },
+    ),
+  trends: (params: { municipio?: string } = {}) =>
+    callOrMock<TrendPoint[]>(
+      async () =>
+        (
+          await api.get<TrendPoint[]>("/analytics/trends", {
+            params: params.municipio ? { municipio: params.municipio } : undefined,
+          })
+        ).data,
+      [],
+    ),
+  interMunicipal: () =>
+    callOrMock<InterMunicipalData[]>(
+      async () => (await api.get<InterMunicipalData[]>("/analytics/inter-municipal")).data,
+      [],
     ),
 };
 
@@ -427,7 +457,64 @@ export const mlService = {
 export const exportsService = {
   worksCsvUrl: () => `${ROOT}/api/v1/exports/works.csv`,
   worksXlsxUrl: () => `${ROOT}/api/v1/exports/works.xlsx`,
+
+  /** Download do CSV com tratamento de erro via fetch + blob. */
+  downloadCsv: async (filename = "argus-obras.csv"): Promise<void> => {
+    const url = exportsService.worksCsvUrl();
+    const res = await fetch(url, { signal: AbortSignal.timeout(COLD_START_TIMEOUT_MS) });
+    if (!res.ok) {
+      throw new Error(`Falha ao exportar CSV (HTTP ${res.status}). Verifique se o backend está disponível.`);
+    }
+    const blob = await res.blob();
+    triggerDownload(blob, filename, "text/csv");
+  },
+
+  /** Download do XLSX com tratamento de erro via fetch + blob. */
+  downloadXlsx: async (filename = "argus-obras.xlsx"): Promise<void> => {
+    const url = exportsService.worksXlsxUrl();
+    const res = await fetch(url, { signal: AbortSignal.timeout(COLD_START_TIMEOUT_MS) });
+    if (!res.ok) {
+      throw new Error(`Falha ao exportar XLSX (HTTP ${res.status}). Verifique se o backend está disponível.`);
+    }
+    const blob = await res.blob();
+    triggerDownload(blob, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  },
+
+  /** Exporta dados atuais como CSV gerado no cliente (fallback). */
+  exportClientCsv: (rows: Record<string, unknown>[], filename = "argus-relatorio.csv"): void => {
+    if (!rows.length) throw new Error("Nenhum dado disponível para exportação.");
+    const headers = Object.keys(rows[0]);
+    const csv = [
+      headers.join(";"),
+      ...rows.map((r) =>
+        headers
+          .map((h) => {
+            const v = r[h];
+            if (v == null) return "";
+            const s = String(v);
+            return s.includes(";") || s.includes('"') || s.includes("\n")
+              ? `"${s.replace(/"/g, '""')}"`
+              : s;
+          })
+          .join(";"),
+      ),
+    ].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    triggerDownload(blob, filename, "text/csv");
+  },
 };
+
+/** Cria um object URL temporário e dispara o download via link programático. */
+function triggerDownload(blob: Blob, filename: string, _mime: string): void {
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
+}
 
 /* -------------------------------------------------------------------------- */
 /* Services de domínio (Obra, Contrato, Alerta, Município, Summary).          */

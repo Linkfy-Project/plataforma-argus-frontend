@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Building, Calendar, FileText, MapPin, Wallet, Gauge, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Building, Calendar, FileText, MapPin, Wallet, Gauge, ShieldAlert, Brain } from "lucide-react";
 import { PageHeader } from "@/components/argus/PageHeader";
 import { StatusBadge } from "@/components/argus/StatusBadge";
 import { AlertBadge } from "@/components/argus/AlertBadge";
 import { LoadingState, EmptyState, ErrorState } from "@/components/argus/EmptyState";
 import { Progress } from "@/components/ui/progress";
+import { PredictiveRiskGroup, PredictiveRiskBadge, type RiskCategory } from "@/components/argus/PredictiveRiskBadge";
 import { Button } from "@/components/ui/button";
 import { obrasService, alertasService } from "@/lib/api";
 import { fmtBRL, fmtDate, fmtPct } from "@/lib/format";
@@ -26,10 +27,18 @@ function ObraDetail() {
   const related = (alertas.data ?? []).filter((a) => a.obra_id === o.id);
 
   const riscos = [
-    { label: "Atraso", value: o.risco_atraso },
-    { label: "Custo", value: o.risco_custo },
-    { label: "Retrabalho", value: o.risco_retrabalho },
-  ].filter((r) => typeof r.value === "number");
+    { label: "Atraso", value: o.risco_atraso, category: "delay" as RiskCategory },
+    { label: "Custo", value: o.risco_custo, category: "cost" as RiskCategory },
+    { label: "Retrabalho", value: o.risco_retrabalho, category: "rework" as RiskCategory },
+  ].filter((r): r is typeof r & { value: number } => typeof r.value === "number");
+
+  const preventiveActions = [];
+  if ((o.risco_atraso ?? 0) >= 0.4) preventiveActions.push("Recomenda-se auditoria técnica presencial antes da liberação da próxima parcela financeira.");
+  if ((o.risco_custo ?? 0) >= 0.4) preventiveActions.push("Solicitar revisão detalhada dos aditivos contratuais e justificativas de custo.");
+  if ((o.risco_retrabalho ?? 0) >= 0.4) preventiveActions.push("Reforçar fiscalização técnica em campo e verificar qualidade dos materiais.");
+  if (preventiveActions.length === 0 && riscos.length > 0) {
+    preventiveActions.push("Manter monitoramento contínuo. Nenhuma ação preventiva urgente necessária no momento.");
+  }
 
   const info: { label: string; value: string; icon: typeof MapPin }[] = [
     { label: "Município", value: o.municipio, icon: MapPin },
@@ -141,7 +150,7 @@ function ObraDetail() {
                     <div key={r.label}>
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">{r.label}</span>
-                        <span className="font-medium text-foreground">{Math.round((r.value as number) * 100)}%</span>
+                        <PredictiveRiskBadge category={r.category} probability={r.value} compact />
                       </div>
                       <Progress value={(r.value as number) * 100} className="h-1.5" />
                     </div>
@@ -150,6 +159,30 @@ function ObraDetail() {
               )}
             </div>
           )}
+
+          {preventiveActions.length > 0 && (
+            <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-5 shadow-sm">
+              <div className="mb-3 flex items-center gap-2">
+                <Brain className="h-4 w-4 text-orange-600" />
+                <h3 className="text-sm font-semibold text-orange-700">Ações Preventivas Sugeridas (IA)</h3>
+              </div>
+              <ul className="space-y-2">
+                {preventiveActions.map((action, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-orange-800">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />
+                    {action}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <PredictiveRiskGroup
+            delayProbability={o.risco_atraso}
+            costProbability={o.risco_custo}
+            reworkProbability={o.risco_retrabalho}
+            className="rounded-xl border border-border bg-card p-5 shadow-sm"
+          />
 
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h3 className="mb-3 text-sm font-semibold text-foreground">Alertas relacionados</h3>
