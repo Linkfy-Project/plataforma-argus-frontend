@@ -1,7 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Building2, HardHat, Wallet, Gauge, AlertTriangle, Trophy, TrendingDown,
+  Building2,
+  HardHat,
+  Wallet,
+  Gauge,
+  AlertTriangle,
+  Trophy,
+  TrendingDown,
 } from "lucide-react";
 import { PageHeader } from "@/components/argus/PageHeader";
 import { StatCard } from "@/components/argus/StatCard";
@@ -24,7 +30,7 @@ function MacaePage() {
   });
   const works = useQuery({
     queryKey: ["works", MUNICIPIO],
-    queryFn: () => worksService.list({ municipio: MUNICIPIO, limit: 500 }),
+    queryFn: () => worksService.listAll({ municipio: MUNICIPIO }),
   });
   const rankings = useQuery({
     queryKey: ["rankings", MUNICIPIO],
@@ -50,10 +56,30 @@ function MacaePage() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Obras monitoradas" value={fmtNumber(s.total_works)} icon={HardHat} tone="primary" />
-        <StatCard label="Eficiência média" value={`${Math.round(s.average_efficiency_score)}%`} icon={Gauge} tone="success" />
-        <StatCard label="Obras atrasadas" value={fmtNumber(s.delayed_works)} icon={Building2} tone="warning" />
-        <StatCard label="Alertas críticos" value={fmtNumber(s.critical_alerts)} icon={AlertTriangle} tone="danger" />
+        <StatCard
+          label="Obras monitoradas"
+          value={fmtNumber(s.total_works)}
+          icon={HardHat}
+          tone="primary"
+        />
+        <StatCard
+          label="Eficiência média"
+          value={`${Math.round(s.average_efficiency_score)}%`}
+          icon={Gauge}
+          tone="success"
+        />
+        <StatCard
+          label="Obras atrasadas"
+          value={fmtNumber(s.delayed_works)}
+          icon={Building2}
+          tone="warning"
+        />
+        <StatCard
+          label="Alertas críticos"
+          value={fmtNumber(s.critical_alerts)}
+          icon={AlertTriangle}
+          tone="danger"
+        />
         <StatCard label="Valor contratado" value={fmtBRL(totalValor)} icon={Wallet} tone="accent" />
         <StatCard label="Alertas totais" value={fmtNumber(totalAlertas)} icon={AlertTriangle} />
       </div>
@@ -70,7 +96,9 @@ function MacaePage() {
             <ul className="divide-y divide-border">
               {bestMacae.map((w) => (
                 <li key={w.id} className="flex items-center justify-between py-2 text-sm">
-                  <span className="truncate pr-3 font-medium text-foreground">{w.object_description}</span>
+                  <span className="truncate pr-3 font-medium text-foreground">
+                    {w.object_description}
+                  </span>
                   <span className="text-xs font-semibold text-[color:var(--success)]">
                     {Math.round(w.efficiency_score ?? 0)}%
                   </span>
@@ -91,7 +119,9 @@ function MacaePage() {
             <ul className="divide-y divide-border">
               {worstMacae.map((w) => (
                 <li key={w.id} className="flex items-center justify-between py-2 text-sm">
-                  <span className="truncate pr-3 font-medium text-foreground">{w.object_description}</span>
+                  <span className="truncate pr-3 font-medium text-foreground">
+                    {w.object_description}
+                  </span>
                   <span className="text-xs font-semibold text-destructive">
                     {Math.round(w.efficiency_score ?? 0)}%
                   </span>
