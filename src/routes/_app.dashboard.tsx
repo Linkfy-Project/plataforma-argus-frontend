@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Trophy,
   TrendingDown,
+  TrendingUp,
   BookOpen,
 } from "lucide-react";
 import {
@@ -19,6 +20,8 @@ import {
   CartesianGrid,
   Cell,
   Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -67,6 +70,10 @@ function DashboardPage() {
   const etl = useQuery<SyncStatus>({
     queryKey: ["etl", "sync-status"],
     queryFn: () => etlService.syncStatus(),
+  });
+  const trends = useQuery({
+    queryKey: ["analytics", "trends", { municipio: "macae" }],
+    queryFn: () => analyticsService.trends({ municipio: "macae" }),
   });
 
   if (summary.isLoading || works.isLoading) {
@@ -251,7 +258,7 @@ function DashboardPage() {
             </Link>
           </Button>
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {ARGUS_PILLARS.map((p) => (
             <div key={p.key} className="rounded-lg border border-border bg-background/50 p-3">
               <p className="text-xs font-medium text-muted-foreground">{p.label}</p>
@@ -321,6 +328,62 @@ function DashboardPage() {
             </ul>
           )}
         </div>
+      </div>
+
+      {/* ── Tendência temporal do score ARGUS ── */}
+      <div className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+          <TrendingUp className="h-4 w-4 text-primary" />
+          Evolução do Score ARGUS ao longo do tempo
+        </div>
+        {!trends.data?.length ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            Sem dados de tendência disponíveis.
+          </p>
+        ) : (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trends.data}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={(v: string) => {
+                    const [y, m] = v.split("-");
+                    const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+                    return `${meses[Number(m) - 1]}/${y.slice(2)}`;
+                  }}
+                />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
+                <Tooltip
+                  labelFormatter={(v: string) => {
+                    const [y, m] = v.split("-");
+                    const meses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+                    return `${meses[Number(m) - 1]} de ${y}`;
+                  }}
+                  formatter={(value: number, name: string) => {
+                    const labels: Record<string, string> = {
+                      avg_score: "Score médio",
+                      count: "Obras",
+                      total_value: "Valor total",
+                    };
+                    if (name === "total_value") return [`R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, labels[name] ?? name];
+                    return [value, labels[name] ?? name];
+                  }}
+                  contentStyle={{ fontSize: 12 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="avg_score"
+                  stroke="#287BBE"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: "#287BBE" }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -157,11 +157,21 @@ export function adaptObra(w: WorkRead): Obra {
     risco_atraso: w.risk_delay_probability ?? undefined,
     risco_custo: w.risk_cost_probability ?? undefined,
     risco_retrabalho: w.risk_rework_probability ?? undefined,
+    cost_score: w.cost_score ?? undefined,
+    deadline_score: w.deadline_score ?? undefined,
+    quality_score: w.quality_score ?? undefined,
+    recurrence_score: w.recurrence_score ?? undefined,
+    social_impact_score: w.social_impact_score ?? undefined,
     numero_contrato: w.contract_number ?? undefined,
     bairro: w.neighborhood ?? undefined,
     endereco: w.address ?? undefined,
     latitude: w.latitude ?? undefined,
     longitude: w.longitude ?? undefined,
+    crea_light_count: w.crea_light_count,
+    crea_medium_count: w.crea_medium_count,
+    crea_grave_count: w.crea_grave_count,
+    territorial_overlap_ratio: w.territorial_overlap_ratio ?? undefined,
+    benchmark_cost_m2: w.benchmark_cost_m2 ?? undefined,
   };
 }
 
@@ -438,6 +448,10 @@ export const etlService = {
         params: { path: params.path, municipio: params.municipio ?? "Macae" },
       })
     ).data,
+  sinapiBenchmarks: async () => (await api.get("/etl/sinapi/benchmarks")).data,
+  ipcaIndex: async () => (await api.get("/etl/inflation/ipca")).data,
+  testInflation: async (params: { value?: number; source_date?: string }) =>
+    (await api.get("/etl/inflation/test-correction", { params })).data,
 };
 
 export const geoService = {
@@ -452,6 +466,7 @@ export const mlService = {
   predict: async (payload: Record<string, unknown>) =>
     (await api.post("/ml/predict", payload)).data,
   trainBaseline: async () => (await api.post("/ml/train-baseline")).data,
+  retrainReal: async () => (await api.post("/ml/retrain-real")).data,
 };
 
 export const exportsService = {

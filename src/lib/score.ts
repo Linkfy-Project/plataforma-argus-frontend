@@ -1,12 +1,13 @@
 /**
  * Helpers centralizados do Índice Composto de Eficiência ARGUS.
  *
- * Pilares e pesos oficiais:
- *   - Custo Paramétrico           30%
+ * Pilares e pesos oficiais (v2 — com ML Risk Score):
+ *   - Custo Paramétrico           25%
  *   - Prazo / Cronograma          25%
  *   - Qualidade Técnica/Aditivos  20%
- *   - Recorrência Territorial     15%
- *   - Impacto Socioeconômico      10%
+ *   - Recorrência Territorial     10%
+ *   - Impacto Socioeconômico       5%
+ *   - ML Risk Score               15%
  *
  * O multiplicador de criticidade é aplicado quando IDH < 0,600.
  */
@@ -18,11 +19,12 @@ export type RiskLevel =
   | "Indefinido";
 
 export const ARGUS_PILLARS = [
-  { key: "cost", label: "Custo Paramétrico", weight: 0.30, scoreField: "cost_score" as const },
+  { key: "cost", label: "Custo Paramétrico", weight: 0.25, scoreField: "cost_score" as const },
   { key: "deadline", label: "Prazo / Cronograma", weight: 0.25, scoreField: "deadline_score" as const },
   { key: "quality", label: "Qualidade Técnica e Aditivos", weight: 0.20, scoreField: "quality_score" as const },
-  { key: "recurrence", label: "Recorrência Territorial", weight: 0.15, scoreField: "recurrence_score" as const },
-  { key: "social", label: "Impacto Socioeconômico", weight: 0.10, scoreField: "social_impact_score" as const },
+  { key: "recurrence", label: "Recorrência Territorial", weight: 0.10, scoreField: "recurrence_score" as const },
+  { key: "social", label: "Impacto Socioeconômico", weight: 0.05, scoreField: "social_impact_score" as const },
+  { key: "ml_risk", label: "ML Risk Score", weight: 0.15, scoreField: "risk_delay_probability" as const },
 ] as const;
 
 export const IDH_CRITICAL_THRESHOLD = 0.6;

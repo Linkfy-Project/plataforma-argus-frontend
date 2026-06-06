@@ -1,15 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CalendarClock, Database, PlayCircle, RefreshCcw, Timer, Activity, Server, Building2,
+  CalendarClock, Database, PlayCircle, RefreshCcw, Timer, Activity, Server, Building2, Brain,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/argus/PageHeader";
 import { StatCard } from "@/components/argus/StatCard";
 import { LoadingState, ErrorState } from "@/components/argus/EmptyState";
 import { Button } from "@/components/ui/button";
-import { etlService, worksService } from "@/lib/api";
-import { formatDateBR } from "@/lib/format";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { etlService, worksService, mlService } from "@/lib/api";
+import { formatDateBR, fmtBRL } from "@/lib/format";
 import { normalizeApiError } from "@/lib/score";
 import type { SyncStatus } from "@/types";
 
@@ -68,13 +69,31 @@ function EtlPage() {
     () => worksService.recomputeAll(),
     { loading: "Recalculando todos os índices ARGUS...", success: "Recalculo do Índice ARGUS concluído." },
   );
+  const mlRetrain = wrap(
+    () => mlService.retrainReal(),
+    { loading: "Retreinando modelo ML com dados reais...", success: "Modelo ML retreinado com sucesso." },
+  );
+
+  /* ── Tabela de referência SINAPI ── */
+  const sinapi = useQuery({
+    queryKey: ["etl", "sinapi-benchmarks"],
+    queryFn: () => etlService.sinapiBenchmarks(),
+    staleTime: 30 * 60_000, // cache por 30 minutos (dados trimestrais)
+  });
+
+  /* ── Índice IPCA (correção inflacionária) ── */
+  const ipca = useQuery({
+    queryKey: ["etl", "ipca-index"],
+    queryFn: () => etlService.ipcaIndex(),
+    staleTime: 60 * 60_000, // cache por 1 hora
+  });
 
   if (status.isLoading) return <LoadingState rows={5} />;
   if (status.isError) return <ErrorState onRetry={() => status.refetch()} />;
 
   const s = status.data ?? {};
   const anyRunning =
-    syncAll.isPending || tcerj.isPending || macae.isPending || recompute.isPending;
+    syncAll.isPending || tcerj.isPending || macae.isPending || recompute.isPending || mlRetrain.isPending;
 
   return (
     <div>
@@ -124,7 +143,7 @@ function EtlPage() {
         />
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
         <Button
           className="h-auto justify-start gap-3 bg-primary py-3 hover:bg-primary/90"
           onClick={() => syncAll.mutate()}
@@ -172,6 +191,18 @@ function EtlPage() {
             <p className="text-xs text-muted-foreground">POST /works/recompute-all</p>
           </div>
         </Button>
+        <Button
+          variant="outline"
+          className="h-auto justify-start gap-3 py-3"
+          onClick={() => mlRetrain.mutate()}
+          disabled={anyRunning}
+        >
+          <Brain className="h-5 w-5 text-primary" />
+          <div className="text-left">
+            <p className="text-sm font-semibold">Retreinar Modelo ML</p>
+            <p className="text-xs text-muted-foreground">POST /ml/retrain-real</p>
+          </div>
+        </Button>
       </div>
 
       <div className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -186,6 +217,62 @@ function EtlPage() {
           Job: <code className="font-mono">{s.job_id ?? "public_data_sync"}</code> · Fuso horário: {s.timezone ?? "America/Sao_Paulo"}
         </p>
       </div>
+
+      {/* ── Tabela de Referência SINAPI ── */}
+      {sinapi.data && (
+        <div className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <Database className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Tabela de Referência SINAPI</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Fonte: {sinapi.data.source} · Região: {sinapi.data.region} · Referência: {sinapi.data.reference_date}
+          </p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipo de Obra</TableHead>
+                <TableHead className="text-right">Custo R$/m²</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Object.entries(sinapi.data.benchmarks).map(([tipo, custo]) => (
+                <TableRow key={tipo}>
+                  <TableCell className="font-medium capitalize">{tipo.replace(/_/g, ' ')}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmtBRL(custo as number)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* ── Correção Inflacionária (IPCA) ── */}
+      {ipca.data && (
+        <div className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <Activity className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Correção Inflacionária (IPCA)</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Fonte: {ipca.data.source} · Série: {ipca.data.series}
+          </p>
+          <p className="text-sm text-muted-foreground mb-3">
+            O sistema aplica correção inflacionária pelo IPCA para comparar justamente obras de diferentes anos.
+            Valores são corrigidos para a data atual antes de comparar com o benchmark SINAPI.
+          </p>
+          {/* Mostrar últimos 5 índices se disponíveis */}
+          {ipca.data.index && (
+            <div className="flex gap-2 flex-wrap">
+              {Object.entries(ipca.data.index).slice(-5).map(([date, value]) => (
+                <span key={date} className="rounded-md border border-border bg-muted/50 px-2 py-1 text-xs">
+                  {date}: <strong>{Number(value).toFixed(2)}</strong>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

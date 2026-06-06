@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
@@ -39,6 +40,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { fmtBRL, fmtNumber } from "@/lib/format";
 import { getRiskLevel, getScoreHex, ARGUS_PILLARS } from "@/lib/score";
+import type { WorkRead, AnalyticsSummary, AnalyticsRankings, Alerta } from "@/types";
 
 export const Route = createFileRoute("/cidadao/painel")({
   head: () => ({ meta: [{ title: "Painel — Portal do Cidadão" }] }),
@@ -55,27 +57,27 @@ const RISK_COLORS: Record<string, string> = {
 
 function CidadaoPainel() {
   const queryClient = useQueryClient();
-  const [modalObraId, setModalObraId] = React.useState<string | null>(null);
+  const [modalObraId, setModalObraId] = useState<string | null>(null);
 
-  const summary = useQuery({
+  const summary = useQuery<AnalyticsSummary>({
     queryKey: ["painel-summary"],
     queryFn: () => analyticsService.summary(),
     staleTime: 2 * 60_000,
   });
 
-  const works = useQuery({
+  const works = useQuery<WorkRead[]>({
     queryKey: ["painel-works"],
     queryFn: () => worksService.listAll({}),
     staleTime: 2 * 60_000,
   });
 
-  const rankings = useQuery({
+  const rankings = useQuery<AnalyticsRankings>({
     queryKey: ["painel-rankings", 5],
     queryFn: () => analyticsService.rankings(5),
     staleTime: 2 * 60_000,
   });
 
-  const alertas = useQuery({
+  const alertas = useQuery<Alerta[]>({
     queryKey: ["painel-alertas"],
     queryFn: () => alertasService.list(),
     staleTime: 2 * 60_000,
@@ -97,21 +99,21 @@ function CidadaoPainel() {
   }
 
   const s = summary.data!;
-  const ws = works.data ?? [];
-  const alerts = alertas.data ?? [];
-  const valorTotal = ws.reduce((acc, w) => acc + (w.contract_value ?? 0), 0);
-  const valorPago = ws.reduce((acc, w) => acc + (w.paid_value ?? w.settled_value ?? 0), 0);
-  const criticos = alerts.filter((a) => a.nivel === "Crítico" || a.nivel === "Alto").length;
+  const ws: WorkRead[] = works.data ?? [];
+  const alerts: Alerta[] = alertas.data ?? [];
+  const valorTotal = ws.reduce((acc: number, w: WorkRead) => acc + (w.contract_value ?? 0), 0);
+  const valorPago = ws.reduce((acc: number, w: WorkRead) => acc + (w.paid_value ?? w.settled_value ?? 0), 0);
+  const criticos = alerts.filter((a: Alerta) => a.nivel === "Crítico" || a.nivel === "Alto").length;
 
   // Status counts
-  const emAndamento = ws.filter((w) => !w.finished_at && (w.status ?? "") !== "Planejada").length;
-  const concluidas = ws.filter((w) => !!w.finished_at).length;
-  const atrasadas = ws.filter((w) => {
+  const emAndamento = ws.filter((w: WorkRead) => !w.finished_at && (w.status ?? "") !== "Planejada").length;
+  const concluidas = ws.filter((w: WorkRead) => !!w.finished_at).length;
+  const atrasadas = ws.filter((w: WorkRead) => {
     if (w.finished_at) return false;
     return w.due_at ? new Date(w.due_at) < new Date() : false;
   }).length;
-  const paralisadas = ws.filter((w) => (w.status ?? "").toLowerCase().includes("paralis")).length;
-  const planejadas = ws.filter((w) => w.status === "Planejada").length;
+  const paralisadas = ws.filter((w: WorkRead) => (w.status ?? "").toLowerCase().includes("paralis")).length;
+  const planejadas = ws.filter((w: WorkRead) => w.status === "Planejada").length;
 
   const statusData = [
     { name: "Em andamento", value: emAndamento, color: "#3B82F6" },
@@ -123,25 +125,25 @@ function CidadaoPainel() {
 
   const riscoBuckets = ["Baixo", "Atenção", "Alto", "Crítico"].map((label) => ({
     label,
-    total: ws.filter((w) => getRiskLevel(w.efficiency_score) === label).length,
+    total: ws.filter((w: WorkRead) => getRiskLevel(w.efficiency_score) === label).length,
   }));
 
   const scoreDist = [
-    { faixa: "Crítico (0–39)", total: ws.filter((w) => (w.efficiency_score ?? 0) < 40).length, color: "#DC2626" },
-    { faixa: "Alto (40–59)", total: ws.filter((w) => (w.efficiency_score ?? 0) >= 40 && (w.efficiency_score ?? 0) < 60).length, color: "#F97316" },
-    { faixa: "Atenção (60–79)", total: ws.filter((w) => (w.efficiency_score ?? 0) >= 60 && (w.efficiency_score ?? 0) < 80).length, color: "#F59E0B" },
-    { faixa: "Bom (80–100)", total: ws.filter((w) => (w.efficiency_score ?? 0) >= 80).length, color: "#22C55E" },
+    { faixa: "Crítico (0–39)", total: ws.filter((w: WorkRead) => (w.efficiency_score ?? 0) < 40).length, color: "#DC2626" },
+    { faixa: "Alto (40–59)", total: ws.filter((w: WorkRead) => (w.efficiency_score ?? 0) >= 40 && (w.efficiency_score ?? 0) < 60).length, color: "#F97316" },
+    { faixa: "Atenção (60–79)", total: ws.filter((w: WorkRead) => (w.efficiency_score ?? 0) >= 60 && (w.efficiency_score ?? 0) < 80).length, color: "#F59E0B" },
+    { faixa: "Bom (80–100)", total: ws.filter((w: WorkRead) => (w.efficiency_score ?? 0) >= 80).length, color: "#22C55E" },
   ];
 
   // Predictive risks
-  const withRisk = ws.filter((w) => w.risk_delay_probability != null);
-  const avgDelayRisk = withRisk.length > 0 ? withRisk.reduce((s, w) => s + (w.risk_delay_probability ?? 0), 0) / withRisk.length : 0;
-  const avgCostRisk = withRisk.length > 0 ? withRisk.reduce((s, w) => s + (w.risk_cost_probability ?? 0), 0) / withRisk.length : 0;
-  const avgReworkRisk = withRisk.length > 0 ? withRisk.reduce((s, w) => s + (w.risk_rework_probability ?? 0), 0) / withRisk.length : 0;
-  const highRiskCount = ws.filter((w) => (w.risk_delay_probability ?? 0) >= 0.7 || (w.risk_cost_probability ?? 0) >= 0.7 || (w.risk_rework_probability ?? 0) >= 0.7).length;
+  const withRisk = ws.filter((w: WorkRead) => w.risk_delay_probability != null);
+  const avgDelayRisk = withRisk.length > 0 ? withRisk.reduce((s: number, w: WorkRead) => s + (w.risk_delay_probability ?? 0), 0) / withRisk.length : 0;
+  const avgCostRisk = withRisk.length > 0 ? withRisk.reduce((s: number, w: WorkRead) => s + (w.risk_cost_probability ?? 0), 0) / withRisk.length : 0;
+  const avgReworkRisk = withRisk.length > 0 ? withRisk.reduce((s: number, w: WorkRead) => s + (w.risk_rework_probability ?? 0), 0) / withRisk.length : 0;
+  const highRiskCount = ws.filter((w: WorkRead) => (w.risk_delay_probability ?? 0) >= 0.7 || (w.risk_cost_probability ?? 0) >= 0.7 || (w.risk_rework_probability ?? 0) >= 0.7).length;
 
   // Execution overview
-  const avgExecution = ws.length > 0 ? ws.reduce((s, w) => {
+  const avgExecution = ws.length > 0 ? ws.reduce((s: number, w: WorkRead) => {
     const cv = w.contract_value ?? 0;
     if (!cv) return s;
     const pv = w.paid_value ?? w.settled_value ?? w.committed_value ?? 0;
@@ -154,14 +156,14 @@ function CidadaoPainel() {
   const worstRanked = rankings.data?.worst ?? [];
 
   const contratadoTop = Object.entries(
-    ws.reduce<Record<string, number>>((acc, w) => {
+    ws.reduce<Record<string, number>>((acc: Record<string, number>, w: WorkRead) => {
       const name = w.contractor_name?.trim();
       if (!name) return acc;
       acc[name] = (acc[name] ?? 0) + 1;
       return acc;
     }, {}),
   )
-    .map(([name, total]) => ({ name, total }))
+    .map(([name, total]) => ({ name, total: total as number }))
     .sort((a, b) => b.total - a.total)
     .slice(0, 6);
 
@@ -228,7 +230,7 @@ function CidadaoPainel() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={statusData} dataKey="value" nameKey="name" innerRadius={40} outerRadius={80} paddingAngle={2}
-                  label={({ name, value }) => `${name}: ${value}`}>
+                  label={({ name, value }: { name: string; value: number }) => `${name}: ${value}`}>
                   {statusData.map((d) => <Cell key={d.name} fill={d.color} />)}
                 </Pie>
                 <Tooltip formatter={(v: number, n: string) => [`${v} obra(s)`, n]} />
@@ -277,9 +279,9 @@ function CidadaoPainel() {
           <h3 className="mb-3 text-sm font-semibold text-foreground">Riscos preditivos (IA)</h3>
           <p className="text-xs text-muted-foreground mb-4">Média das probabilidades de risco calculadas pela IA.</p>
           <div className="space-y-4">
-            <RiskSummary label="Atraso" value={avgDelayRisk} count={ws.filter((w) => (w.risk_delay_probability ?? 0) >= 0.7).length} />
-            <RiskSummary label="Estouro de custo" value={avgCostRisk} count={ws.filter((w) => (w.risk_cost_probability ?? 0) >= 0.7).length} />
-            <RiskSummary label="Retrabalho" value={avgReworkRisk} count={ws.filter((w) => (w.risk_rework_probability ?? 0) >= 0.7).length} />
+            <RiskSummary label="Atraso" value={avgDelayRisk} count={ws.filter((w: WorkRead) => (w.risk_delay_probability ?? 0) >= 0.7).length} />
+            <RiskSummary label="Estouro de custo" value={avgCostRisk} count={ws.filter((w: WorkRead) => (w.risk_cost_probability ?? 0) >= 0.7).length} />
+            <RiskSummary label="Retrabalho" value={avgReworkRisk} count={ws.filter((w: WorkRead) => (w.risk_rework_probability ?? 0) >= 0.7).length} />
           </div>
           <div className="mt-4 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
             <strong className="text-foreground">{highRiskCount}</strong> obra(s) com risco ≥ 70% em pelo menos um indicador.
@@ -328,7 +330,7 @@ function CidadaoPainel() {
                   innerRadius={40}
                   outerRadius={80}
                   paddingAngle={2}
-                  label={({ faixa, total }) => `${faixa}: ${total}`}
+                  label={({ faixa, total }: { faixa: string; total: number }) => `${faixa}: ${total}`}
                 >
                   {scoreDist.map((d) => (
                     <Cell key={d.faixa} fill={d.color} />
@@ -345,9 +347,9 @@ function CidadaoPainel() {
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <h3 className="mb-3 text-sm font-semibold text-foreground">Como funciona o Índice ARGUS</h3>
         <p className="text-xs text-muted-foreground mb-4">
-          O score de cada obra é calculado com base em 5 pilares. Quanto maior o peso, mais impacta na nota final.
+          O score de cada obra é calculado com base em 6 pilares. Quanto maior o peso, mais impacta na nota final.
         </p>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {ARGUS_PILLARS.map((p) => (
             <div key={p.key} className="rounded-lg border border-border bg-background/50 p-3">
               <p className="text-xs font-medium text-muted-foreground">{p.label}</p>
@@ -370,7 +372,7 @@ function CidadaoPainel() {
           ) : (
             <ul className="divide-y divide-border">
               {bestRanked.slice(0, 5).map((w) => {
-                const fullWork = ws.find((fw) => fw.id === w.id);
+                const fullWork = ws.find((fw: WorkRead) => fw.id === w.id);
                 return (
                   <li key={w.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                     <button type="button" onClick={() => setModalObraId(String(w.id))}
@@ -398,7 +400,7 @@ function CidadaoPainel() {
           ) : (
             <ul className="divide-y divide-border">
               {worstRanked.slice(0, 5).map((w) => {
-                const fullWork = ws.find((fw) => fw.id === w.id);
+                const fullWork = ws.find((fw: WorkRead) => fw.id === w.id);
                 return (
                   <li key={w.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                     <button type="button" onClick={() => setModalObraId(String(w.id))}
@@ -423,7 +425,7 @@ function CidadaoPainel() {
 
       {/* Rankings + Constructores */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Obras mais críticas */}
+        {/* Obras mais críticas (ranking API) */}
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
             <TrendingDown className="h-4 w-4 text-destructive" /> Obras mais críticas
@@ -433,7 +435,7 @@ function CidadaoPainel() {
           ) : (
             <ul className="divide-y divide-border">
               {rankings.data.worst.slice(0, 5).map((w) => {
-                const fullWork = ws.find((fw) => fw.id === w.id);
+                const fullWork = ws.find((fw: WorkRead) => fw.id === w.id);
                 return (
                   <li key={w.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                     <button
@@ -533,7 +535,7 @@ function CidadaoPainel() {
           <p className="text-sm text-muted-foreground">Nenhum alerta registrado.</p>
         ) : (
           <ul className="divide-y divide-border">
-            {alerts.slice(0, 5).map((a) => (
+            {alerts.slice(0, 5).map((a: Alerta) => (
               <li key={a.id} className="flex items-start justify-between gap-3 py-2.5">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{a.titulo}</p>
@@ -587,5 +589,3 @@ function RiskSummary({ label, value, count }: { label: string; value: number; co
     </div>
   );
 }
-
-import React from "react";

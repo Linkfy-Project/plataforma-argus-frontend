@@ -20,11 +20,25 @@ export interface Obra {
   risco_atraso?: number;
   risco_custo?: number;
   risco_retrabalho?: number;
+  /** Scores individuais por pilar ARGUS (0–100). */
+  cost_score?: number;
+  deadline_score?: number;
+  quality_score?: number;
+  recurrence_score?: number;
+  social_impact_score?: number;
   numero_contrato?: string;
   bairro?: string;
   endereco?: string;
   latitude?: number;
   longitude?: number;
+  /** Contadores de infrações CREA (proxy multi-fonte). */
+  crea_light_count?: number;
+  crea_medium_count?: number;
+  crea_grave_count?: number;
+  /** Ratio de sobreposição territorial (buffer 500m). */
+  territorial_overlap_ratio?: number;
+  /** Benchmark SINAPI R$/m² usado no cálculo paramétrico. */
+  benchmark_cost_m2?: number;
 }
 
 export interface Municipio {
@@ -176,12 +190,14 @@ export interface ScoreComponents {
     quality: number;
     recurrence: number;
     social_impact: number;
+    ml_risk: number;
   };
   cost: Record<string, unknown>;
   deadline: Record<string, unknown>;
   quality: Record<string, unknown>;
   recurrence: Record<string, unknown>;
   social_impact: Record<string, unknown>;
+  ml_risk: Record<string, unknown>;
   criticality_rule: Record<string, unknown>;
 }
 
@@ -191,6 +207,7 @@ export interface ScoreExplain {
   quality_score: number;
   recurrence_score: number;
   social_impact_score: number;
+  ml_risk_score?: number;
   efficiency_score: number;
   alerts: ScoreAlert[];
   components: ScoreComponents;
