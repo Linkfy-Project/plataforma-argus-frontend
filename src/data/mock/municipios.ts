@@ -10,11 +10,24 @@ function pseudoEficiencia(seed: number) {
   return Math.round(55 + r() * 40);
 }
 
+function normalizeNomeMunicipio(raw: string): string {
+  const cleaned = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const map: Record<string, string> = {
+    macae: "Macaé-RJ",
+    "macaé": "Macaé-RJ",
+  };
+  return map[cleaned] ?? raw;
+}
+
 export const mockMunicipios: Municipio[] = MUNICIPIOS_RJ.map((nome, i) => {
-  const obras = mockObras.filter((o) => o.municipio === nome);
+  const nomeNormalizado = normalizeNomeMunicipio(nome);
+  const obras = mockObras.filter((o) => normalizeNomeMunicipio(o.municipio) === nomeNormalizado);
   return {
     id: `MUN-${100 + i}`,
-    nome,
+    nome: nomeNormalizado,
     total_obras: obras.length,
     obras_em_andamento: obras.filter((o) => o.status === "Em andamento").length,
     obras_concluidas: obras.filter((o) => o.status === "Concluída").length,

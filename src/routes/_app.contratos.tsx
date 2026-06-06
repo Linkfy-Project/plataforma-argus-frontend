@@ -5,10 +5,12 @@ import { Search, Eye } from "lucide-react";
 import { PageHeader } from "@/components/argus/PageHeader";
 import { ContratoStatusBadge } from "@/components/argus/StatusBadge";
 import { LoadingState, EmptyState, ErrorState } from "@/components/argus/EmptyState";
+import { ContratoDetailModal } from "@/components/argus/ContratoDetailModal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { contratosService } from "@/lib/api";
 import { fmtBRL, fmtDate } from "@/lib/format";
+import type { Contrato } from "@/types";
 
 export const Route = createFileRoute("/_app/contratos")({
   head: () => ({ meta: [{ title: "Contratos — Plataforma Argus" }] }),
@@ -21,6 +23,7 @@ function ContratosPage() {
     queryFn: () => contratosService.list(),
   });
   const [q, setQ] = useState("");
+  const [selectedContrato, setSelectedContrato] = useState<Contrato | null>(null);
 
   const filtered = useMemo(() => {
     const list = data ?? [];
@@ -73,7 +76,7 @@ function ContratosPage() {
                     <td className="px-4 py-3 text-muted-foreground">{fmtDate(c.data_assinatura)}</td>
                     <td className="px-4 py-3"><ContratoStatusBadge status={c.status} /></td>
                     <td className="px-4 py-3 text-right">
-                      <Button variant="ghost" size="sm"><Eye className="mr-1 h-4 w-4" /> Detalhes</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setSelectedContrato(c)}><Eye className="mr-1 h-4 w-4" /> Detalhes</Button>
                     </td>
                   </tr>
                 ))}
@@ -82,6 +85,15 @@ function ContratosPage() {
           </div>
         )}
       </div>
+
+      {/* Modal de detalhes do contrato */}
+      <ContratoDetailModal
+        contrato={selectedContrato}
+        open={!!selectedContrato}
+        onOpenChange={(open) => {
+          if (!open) setSelectedContrato(null);
+        }}
+      />
     </div>
   );
 }

@@ -236,14 +236,15 @@ export function contratosFromWorks(works: WorkRead[]): Contrato[] {
 export function municipiosFromWorks(works: WorkRead[]): Municipio[] {
   const grouped = new Map<string, WorkRead[]>();
   for (const w of works) {
-    const k = w.municipio || "—";
+    const raw = w.municipio || "—";
+    const k = normalizeMunicipioName(raw);
     if (!grouped.has(k)) grouped.set(k, []);
     grouped.get(k)!.push(w);
   }
   return Array.from(grouped.entries()).map(([nome, ws]) => {
     const eff = avg(ws.map((w) => w.efficiency_score ?? 0).filter((v) => v > 0));
     return {
-      id: nome.toLowerCase().replace(/\s+/g, "-"),
+      id: nome.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       nome,
       total_obras: ws.length,
       obras_em_andamento: ws.filter((w) => !w.finished_at).length,
@@ -257,6 +258,56 @@ export function municipiosFromWorks(works: WorkRead[]): Municipio[] {
 
 function avg(nums: number[]): number {
   return nums.length ? nums.reduce((s, v) => s + v, 0) / nums.length : 0;
+}
+
+/**
+ * Normaliza o nome do município ignorando acentos e caixa alta/baixa.
+ * - "MACAE", "Macae", "Macaé" → "Macaé-RJ"
+ * - "RIO DE JANEIRO", "Rio de Janeiro" → "Rio de Janeiro"
+ * Usa uma chave de agrupamento sem acentos + uppercase para detectar duplicatas.
+ */
+const CANONICAL_MUNICIPIO: Record<string, string> = {
+  macae: "Macaé-RJ",
+  "macaé": "Macaé-RJ",
+};
+
+export function normalizeMunicipioName(raw: string): string {
+  const cleaned = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove acentos
+    .replace(/[-–\s]+/g, " ")       // normaliza espaços/hífens
+    .trim()
+    .toLowerCase();
+  // Se tem mapeamento canônico, usa
+  if (CANONICAL_MUNICIPIO[cleaned]) return CANONICAL_MUNICIPIO[cleaned];
+  // Caso genérico: Title Case
+  return cleaned.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Agrupa e mescla dados intermunicipais normalizando nomes de municípios.
+ * Valores numéricos são somados; scores são re-calculados como média ponderada.
+ */
+export function mergeInterMunicipalData(list: InterMunicipalData[]): InterMunicipalData[] {
+  const map = new Map<string, InterMunicipalData>();
+  for (const item of list) {
+    const canonical = normalizeMunicipioName(item.municipio);
+    const existing = map.get(canonical);
+    if (existing) {
+      const totalWorks = existing.total_works + item.total_works;
+      existing.total_works = totalWorks;
+      existing.total_value += item.total_value;
+      // Média ponderada do score
+      existing.avg_score =
+        (existing.avg_score * existing.total_works + item.avg_score * item.total_works) / totalWorks;
+      existing.avg_delay_risk =
+        (existing.avg_delay_risk * existing.total_works + item.avg_delay_risk * item.total_works) /
+        totalWorks;
+    } else {
+      map.set(canonical, { ...item, municipio: canonical });
+    }
+  }
+  return Array.from(map.values());
 }
 
 function summaryFromAnalytics(s: AnalyticsSummary, works?: WorkRead[]): DashboardSummary {
@@ -415,7 +466,10 @@ export const analyticsService = {
     ),
   interMunicipal: () =>
     callOrMock<InterMunicipalData[]>(
-      async () => (await api.get<InterMunicipalData[]>("/analytics/inter-municipal")).data,
+      async () => {
+        const raw = (await api.get<InterMunicipalData[]>("/analytics/inter-municipal")).data;
+        return mergeInterMunicipalData(raw);
+      },
       [],
     ),
 };

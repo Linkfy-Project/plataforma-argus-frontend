@@ -3,6 +3,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { WorkRead } from "@/types";
 import { getScoreHex } from "@/lib/score";
+import { fmtBRL } from "@/lib/format";
 
 // Fix default marker icons in Leaflet + webpack/vite
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -33,6 +34,18 @@ interface ArgusMapProps {
   height?: string;
 }
 
+/* ─── Status badge color helper ─────────────────────────────────────── */
+
+function getStatusColor(status?: string | null): { bg: string; text: string } {
+  const s = (status || "").toLowerCase();
+  if (s.includes("conclu")) return { bg: "#dcfce7", text: "#166534" };
+  if (s.includes("andamento")) return { bg: "#dbeafe", text: "#1e40af" };
+  if (s.includes("atrasad")) return { bg: "#fee2e2", text: "#991b1b" };
+  if (s.includes("paralisad")) return { bg: "#fef3c7", text: "#92400e" };
+  if (s.includes("planejad")) return { bg: "#f3e8ff", text: "#6b21a8" };
+  return { bg: "#f1f5f9", text: "#475569" };
+}
+
 /* ─── Popup helper ──────────────────────────────────────────────────── */
 
 function buildPopupContent(w: WorkRead): string {
@@ -40,23 +53,33 @@ function buildPopupContent(w: WorkRead): string {
   const riskDelay = w.risk_delay_probability != null ? `${Math.round(w.risk_delay_probability * 100)}%` : "—";
   const riskCost = w.risk_cost_probability != null ? `${Math.round(w.risk_cost_probability * 100)}%` : "—";
   const riskRework = w.risk_rework_probability != null ? `${Math.round(w.risk_rework_probability * 100)}%` : "—";
-  const value = w.contract_value ? `R$ ${(w.contract_value / 1000).toFixed(0)}k` : "—";
+  const value = w.contract_value != null ? fmtBRL(w.contract_value) : "—";
+  const statusStyle = getStatusColor(w.status);
+  const alertCount = w.alerts?.length ?? 0;
+  const overlap = w.territorial_overlap_ratio != null ? `${Math.round(w.territorial_overlap_ratio * 100)}%` : null;
 
   return `
-    <div style="min-width:220px;font-family:system-ui,sans-serif;">
+    <div style="min-width:240px;max-width:300px;font-family:system-ui,sans-serif;">
       <h4 style="margin:0 0 6px;font-size:13px;font-weight:600;color:#1e3a8a;">
         ${(w.object_description || `Obra #${w.id}`).substring(0, 60)}
       </h4>
-      <div style="font-size:11px;color:#64748b;margin-bottom:6px;">
+      <div style="font-size:11px;color:#64748b;margin-bottom:8px;">
         ${w.municipio || "—"} · ${w.contractor_name || "Contratado não informado"}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;">
+      ${w.status ? `<div style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:600;background:${statusStyle.bg};color:${statusStyle.text};margin-bottom:8px;">${w.status}</div>` : ""}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:11px;">
         <div><strong>Score:</strong> <span style="color:${getScoreHex(w.efficiency_score)};font-weight:700;">${score}</span></div>
         <div><strong>Valor:</strong> ${value}</div>
         <div><strong>Risco Atraso:</strong> ${riskDelay}</div>
         <div><strong>Risco Custo:</strong> ${riskCost}</div>
         <div><strong>Risco Retrabalho:</strong> ${riskRework}</div>
-        <div><strong>Status:</strong> ${w.status || "—"}</div>
+        <div>
+          <strong>Alertas:</strong>
+          <span style="color:${alertCount > 0 ? "#dc2626" : "#16a34a"};font-weight:700;">
+            ${alertCount}
+          </span>
+        </div>
+        ${overlap ? `<div><strong>Sobreposição:</strong> <span style="color:${w.territorial_overlap_ratio! > 0.5 ? "#ea580c" : "#64748b"};font-weight:600;">${overlap}</span></div>` : ""}
       </div>
       <a href="/obras/${w.id}" style="display:block;margin-top:8px;font-size:11px;color:#2563eb;text-decoration:none;">
         Ver detalhes →
@@ -134,16 +157,36 @@ export function ArgusMap({ works, layers = [], className, height = "500px" }: Ar
       layerGroupsRef.current[layerData.key] = geoJsonLayer;
     }
 
-    // Add work markers
+    // Add work markers and overlap buffers
     const geoWorks = works.filter(
       (w) => w.latitude != null && w.longitude != null && w.latitude !== 0 && w.longitude !== 0,
     );
 
     if (geoWorks.length > 0) {
       const markers: L.CircleMarker[] = [];
+      const overlapCircles: L.Circle[] = [];
       for (const w of geoWorks) {
         const color = getScoreHex(w.efficiency_score);
         const radius = getMarkerRadius(w);
+
+        // Draw overlap buffer circle (500m) for high-overlap works
+        if (w.territorial_overlap_ratio != null && w.territorial_overlap_ratio > 0.5) {
+          const buffer = L.circle([w.latitude!, w.longitude!], {
+            radius: 500,
+            color: "#f97316",
+            weight: 1.5,
+            fillColor: "#f97316",
+            fillOpacity: 0.15,
+            dashArray: "6 4",
+          })
+            .bindTooltip(
+              `Sobreposição territorial: ${Math.round(w.territorial_overlap_ratio * 100)}% — Buffer 500m`,
+              { sticky: true, className: "argus-layer-tooltip" },
+            )
+            .addTo(map);
+          overlapCircles.push(buffer);
+        }
+
         const circle = L.circleMarker([w.latitude!, w.longitude!], {
           radius,
           fillColor: color,

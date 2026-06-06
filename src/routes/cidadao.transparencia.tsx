@@ -1,225 +1,222 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   ShieldCheck,
-  Gauge,
-  Brain,
   DollarSign,
   Clock,
-  Users,
   Repeat,
+  Users,
+  Brain,
   ExternalLink,
-  AlertTriangle,
-  HardHat,
-  Wallet,
+  FileText,
 } from "lucide-react";
-import { analyticsService, dashboardService } from "@/lib/api";
-import { StatCard } from "@/components/argus/StatCard";
-import { LoadingState, ErrorState } from "@/components/argus/EmptyState";
-import { Button } from "@/components/ui/button";
-import { fmtBRL, fmtNumber } from "@/lib/format";
+import { LoadingState } from "@/components/argus/EmptyState";
 
 export const Route = createFileRoute("/cidadao/transparencia")({
-  head: () => ({ meta: [{ title: "Transparencia — Portal do Cidadao" }] }),
+  head: () => ({ meta: [{ title: "Como o ARGUS fiscaliza? — ARGUS" }] }),
   component: CidadaoTransparencia,
 });
 
-const PILLARS = [
+const PILARES = [
   {
     icon: DollarSign,
-    title: "Custo Parametrico (25%)",
-    description:
-      "Compara o custo da obra com benchmarks do SINAPI e dados historicos de obras semelhantes. Avalia se o valor contratado esta dentro do esperado para o tipo de servico.",
+    titulo: "O preço está certo?",
+    descricao:
+      "Comparamos o custo da obra com tabelas oficiais do governo para ver se o valor é justo.",
+    cor: "bg-emerald-500/10 text-emerald-600",
   },
   {
     icon: Clock,
-    title: "Prazo e Cronograma (25%)",
-    description:
-      "Analisa se a obra esta dentro do prazo previsto, considerando aditivos de prazo e atrasos acumulados em relacao ao cronograma original.",
+    titulo: "Está no prazo?",
+    descricao:
+      "Verificamos se a obra está cumprindo o cronograma prometido. Atrasos são automaticamente detectados.",
+    cor: "bg-blue-500/10 text-blue-600",
   },
   {
     icon: ShieldCheck,
-    title: "Qualidade Tecnica (20%)",
-    description:
-      "Avalia a qualidade da execucao com base em registros do CREA-RJ, fiscalizacao tecnica e presenca de aditivos contratuais que possam indicar problemas.",
+    titulo: "A obra é bem feita?",
+    descricao:
+      "Checamos se a construtora tem registro regular no CREA e se não há problemas de fiscalização.",
+    cor: "bg-violet-500/10 text-violet-600",
   },
   {
     icon: Repeat,
-    title: "Recorrencia Territorial (10%)",
-    description:
-      "Identifica se ha concentracao excessiva de contratos com o mesmo contratado na mesma regiao, o que pode indicar direcionamento ou falta de competitividade.",
+    titulo: "Sem obra duplicada",
+    descricao:
+      "Nossa inteligência artificial avisa se a prefeitura está quebrando e refazendo o asfalto no mesmo lugar em pouco tempo.",
+    cor: "bg-orange-500/10 text-orange-600",
   },
   {
     icon: Users,
-    title: "Impacto Socioeconomico (5%)",
-    description:
-      "Considera o IDH (Indice de Desenvolvimento Humano) do setor censitario onde a obra esta localizada, priorizando obras em areas mais vulneraveis.",
+    titulo: "Prioridade para quem mais precisa",
+    descricao:
+      "Obras em bairros com menor índice de desenvolvimento humano recebem atenção especial.",
+    cor: "bg-rose-500/10 text-rose-600",
   },
   {
     icon: Brain,
-    title: "Risco Preditivo - ML (15%)",
-    description:
-      "Modelo de Machine Learning treinado com dados historicos que preve a probabilidade de atraso, sobrecusto e retrabalho para cada obra.",
+    titulo: "Previsão inteligente",
+    descricao:
+      "Um sistema de inteligência artificial analisa o histórico de obras para prever problemas antes que aconteçam.",
+    cor: "bg-cyan-500/10 text-cyan-600",
   },
 ];
 
+const SEMAFOROS = [
+  {
+    cor: "🟢",
+    bg: "bg-green-500/10 border-green-500/30",
+    titulo: "Verde — Em dia",
+    descricao: "Obra ocorrendo sem alertas críticos. Tudo dentro do esperado.",
+  },
+  {
+    cor: "🟡",
+    bg: "bg-yellow-500/10 border-yellow-500/30",
+    titulo: "Amarelo — Atenção",
+    descricao:
+      "Pequenos atrasos ou aditivos detectados. Acompanhamento recomendado.",
+  },
+  {
+    cor: "🔴",
+    bg: "bg-red-500/10 border-red-500/30",
+    titulo: "Vermelho — Problema",
+    descricao:
+      "Risco alto, embargos ou estouro de prazo. Controle social necessário.",
+  },
+];
+
+const FONTES = [
+  { nome: "TCE-RJ", descricao: "Tribunal de Contas do Estado do RJ" },
+  { nome: "CREA-RJ", descricao: "Conselho Regional de Engenharia" },
+  { nome: "IBGE", descricao: "Instituto Brasileiro de Geografia e Estatística" },
+  { nome: "SINAPI", descricao: "Sistema de Custos da Construção (Caixa)" },
+];
+
 function CidadaoTransparencia() {
-  const summary = useQuery({
-    queryKey: ["transparencia-summary"],
-    queryFn: () => analyticsService.summary(),
-    staleTime: 5 * 60_000,
-  });
-
-  const dashboard = useQuery({
-    queryKey: ["transparencia-dashboard"],
-    queryFn: () => dashboardService.getSummary(),
-    staleTime: 5 * 60_000,
-  });
-
-  if (summary.isLoading || dashboard.isLoading) return <LoadingState rows={6} />;
-  if (summary.isError) return <ErrorState onRetry={() => summary.refetch()} />;
-
-  const s = summary.data;
-  const d = dashboard.data;
-
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {/* Hero */}
-      <section className="rounded-2xl border border-border bg-card p-6 shadow-sm md:p-8">
-        <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10">
-            <ShieldCheck className="h-7 w-7 text-primary" />
+      <section className="rounded-2xl border border-border bg-gradient-to-br from-primary/5 to-primary/10 p-6 shadow-sm md:p-10">
+        <div className="mx-auto max-w-3xl text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+            <ShieldCheck className="h-8 w-8 text-primary" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              O que e o ARGUS?
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-              O ARGUS e uma plataforma de monitoramento de obras publicas que utiliza
-              dados oficiais do TCE-RJ (Tribunal de Contas do Estado do Rio de Janeiro),
-              CREA-RJ, IBGE e benchmarks do SINAPI para calcular um indice de eficiencia
-              transparente para cada obra. O objetivo e promover transparencia, prevenir
-              desperdicios e facilitar o controle social.
-            </p>
-          </div>
+          <h1 className="mt-4 text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+            Como o ARGUS fiscaliza?
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground md:text-base">
+            O ARGUS é uma plataforma que monitora obras públicas usando dados oficiais
+            do Tribunal de Contas (TCE-RJ), CREA-RJ, IBGE e tabelas do governo. Nosso
+            objetivo é garantir que o dinheiro público seja bem aplicado e que você,
+            cidadão, possa acompanhar tudo de forma simples e transparente.
+          </p>
         </div>
       </section>
 
-      {/* Dados de transparencia */}
+      {/* Os 6 pilares */}
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Dados de transparencia</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            label="Total investido"
-            value={fmtBRL(d?.valor_total_contratado ?? 0)}
-            helper="Em obras publicas"
-            icon={Wallet}
-            tone="primary"
-          />
-          <StatCard
-            label="Obras monitoradas"
-            value={fmtNumber(s?.total_works ?? d?.total_obras ?? 0)}
-            helper="Com dados oficiais"
-            icon={HardHat}
-            tone="success"
-          />
-          <StatCard
-            label="Alertas ativos"
-            value={fmtNumber(s?.critical_alerts ?? d?.alertas_criticos ?? 0)}
-            helper="Requerem atencao"
-            icon={AlertTriangle}
-            tone="danger"
-          />
-          <StatCard
-            label="Score medio"
-            value={Math.round(s?.average_efficiency_score ?? d?.eficiencia_media ?? 0)}
-            helper="Eficiencia geral"
-            icon={Gauge}
-            tone="warning"
-          />
+        <div className="mb-6 text-center">
+          <h2 className="text-xl font-bold text-foreground">
+            Como avaliamos cada obra?
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Usamos 6 critérios simples para analisar cada obra pública.
+          </p>
         </div>
-      </section>
 
-      {/* Como o score e calculado */}
-      <section>
-        <h2 className="mb-2 text-lg font-semibold text-foreground">
-          Como o Score ARGUS e calculado?
-        </h2>
-        <p className="mb-6 max-w-3xl text-sm text-muted-foreground leading-relaxed">
-          O Score ARGUS e um indice composto de 0 a 100 que combina seis pilares de
-          avaliacao. Cada pilar recebe um peso diferente, refletindo sua importancia
-          relativa na avaliacao da eficiencia de uma obra publica. A nota final e uma
-          media ponderada dos seis componentes.
-        </p>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {PILLARS.map((p) => (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {PILARES.map((p) => (
             <div
-              key={p.title}
-              className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:shadow-md"
+              key={p.titulo}
+              className="group rounded-xl border border-border bg-card p-6 shadow-sm transition hover:shadow-md"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <p.icon className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="text-sm font-semibold text-foreground">{p.title}</h3>
+              <div
+                className={`flex h-12 w-12 items-center justify-center rounded-xl ${p.cor} transition group-hover:scale-110`}
+              >
+                <p.icon className="h-6 w-6" />
               </div>
-              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                {p.description}
+              <h3 className="mt-4 text-base font-semibold text-foreground">
+                {p.titulo}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {p.descricao}
               </p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Faixas de score */}
+      {/* O que significam as cores */}
       <section className="rounded-2xl border border-border bg-card p-6 shadow-sm md:p-8">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Interpretacao do Score</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-[color:var(--success)]/30 bg-[color:var(--success)]/10 p-4">
-            <p className="text-lg font-bold text-[color:var(--success)]">80 - 100</p>
-            <p className="mt-1 text-sm font-semibold text-foreground">Eficiencia alta</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Obra executada dentro dos parametros. Boa gestao de recursos.
-            </p>
-          </div>
-          <div className="rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning)]/10 p-4">
-            <p className="text-lg font-bold text-[color:var(--warning)]">60 - 79</p>
-            <p className="mt-1 text-sm font-semibold text-foreground">Atencao</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Pontos que merecem monitoramento ativo. Risco moderado.
-            </p>
-          </div>
-          <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-4">
-            <p className="text-lg font-bold text-orange-600">40 - 59</p>
-            <p className="mt-1 text-sm font-semibold text-foreground">Risco alto</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Sinais relevantes de risco. Necessita revisao detalhada.
-            </p>
-          </div>
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4">
-            <p className="text-lg font-bold text-destructive">0 - 39</p>
-            <p className="mt-1 text-sm font-semibold text-foreground">Critico</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Situacao critica. Recomendada auditoria imediata.
-            </p>
-          </div>
+        <h2 className="mb-2 text-xl font-bold text-foreground text-center">
+          O que significam as cores?
+        </h2>
+        <p className="mb-6 text-center text-sm text-muted-foreground">
+          No mapa, cada obra recebe uma cor de semáforo para facilitar a visualização.
+        </p>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {SEMAFOROS.map((s) => (
+            <div
+              key={s.titulo}
+              className={`rounded-xl border p-6 text-center ${s.bg}`}
+            >
+              <span className="text-4xl">{s.cor}</span>
+              <h3 className="mt-3 text-base font-semibold text-foreground">
+                {s.titulo}
+              </h3>
+              <p className="mt-2 text-sm text-muted-foreground">{s.descricao}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Metodologia */}
+      {/* De onde vêm os dados */}
+      <section className="rounded-2xl border border-border bg-card p-6 shadow-sm md:p-8">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-foreground">
+            De onde vêm os dados?
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            O ARGUS utiliza fontes oficiais e públicas para garantir a confiabilidade
+            das informações.
+          </p>
+        </div>
+
+        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+          {FONTES.map((fonte) => (
+            <div
+              key={fonte.nome}
+              className="flex flex-col items-center gap-2 rounded-xl border border-border bg-background/50 p-5 text-center transition hover:bg-muted/30"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <FileText className="h-5 w-5 text-primary" />
+              </div>
+              <span className="text-sm font-bold text-foreground">
+                {fonte.nome}
+              </span>
+              <span className="text-[11px] leading-relaxed text-muted-foreground">
+                {fonte.descricao}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA para metodologia completa */}
       <section className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-6 text-center md:p-8">
-        <h2 className="text-lg font-semibold text-foreground">Quer saber mais?</h2>
+        <h2 className="text-lg font-semibold text-foreground">
+          Quer saber ainda mais?
+        </h2>
         <p className="max-w-md text-sm text-muted-foreground">
-          Acesse a metodologia completa do ARGUS com detalhes tecnicos, formulas e
-          fontes de dados utilizadas.
+          Acesse o Portal do Gestor para ver a metodologia completa, com detalhes
+          sobre cada indicador utilizado pelo ARGUS.
         </p>
-        <Button asChild size="lg" variant="outline" className="gap-2">
-          <Link to="/cidadao">
-            <ExternalLink className="h-4 w-4" />
-            Metodologia ARGUS
-          </Link>
-        </Button>
+        <a
+          href="/metodologia"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-card px-6 text-sm font-medium text-foreground shadow-sm transition hover:bg-muted"
+        >
+          <ExternalLink className="h-4 w-4" />
+          Metodologia completa
+        </a>
       </section>
     </div>
   );

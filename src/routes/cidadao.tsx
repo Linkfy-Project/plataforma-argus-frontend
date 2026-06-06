@@ -10,11 +10,10 @@ export const Route = createFileRoute("/cidadao")({
 });
 
 const NAV_ITEMS = [
-  { href: "/cidadao", label: "Início", exact: true },
-  { href: "/cidadao/painel", label: "Painel", exact: false },
+  { href: "/cidadao", label: "Mapa", exact: true },
   { href: "/cidadao/obras", label: "Obras", exact: false },
-  { href: "/cidadao/transparencia", label: "Transparência", exact: false },
-  { href: "/cidadao/notificacoes", label: "Notificações", exact: false },
+  { href: "/cidadao/transparencia", label: "Como funciona", exact: false },
+  { href: "/cidadao/notificacoes", label: "Alertas", exact: false },
 ];
 
 function CidadaoLayout() {
@@ -134,12 +133,7 @@ function CidadaoLayout() {
               <ul className="space-y-2">
                 <li>
                   <Link to="/cidadao" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                    Início
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/cidadao/painel" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                    Painel
+                    Mapa
                   </Link>
                 </li>
                 <li>
@@ -149,12 +143,12 @@ function CidadaoLayout() {
                 </li>
                 <li>
                   <Link to="/cidadao/transparencia" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                    Transparência
+                    Como funciona
                   </Link>
                 </li>
                 <li>
                   <Link to="/cidadao/notificacoes" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                    Notificações
+                    Alertas
                   </Link>
                 </li>
                 <li>
