@@ -347,6 +347,57 @@ export interface WorksListParams {
   per_page?: number;
 }
 
+const normalizeMunicipio = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s*-\s*rj$/, "")
+    .trim();
+
+const matchesMunicipio = (work: WorkRead, municipio?: string) => {
+  if (!municipio) return true;
+  const actual = normalizeMunicipio(work.municipio ?? "");
+  const expected = normalizeMunicipio(municipio);
+  return actual === expected || actual.includes(expected) || expected.includes(actual);
+};
+
+const toTotalPages = (total: number, perPage: number) => Math.max(1, Math.ceil(total / perPage));
+
+function buildWorksParams(params: Omit<WorksListParams, "municipio">) {
+  return {
+    ...(params.min_score != null ? { min_score: params.min_score } : {}),
+    ...(params.max_score != null ? { max_score: params.max_score } : {}),
+    ...(params.status ? { status: params.status } : {}),
+    ...(params.search ? { search: params.search } : {}),
+    ...(params.min_value != null ? { min_value: params.min_value } : {}),
+    ...(params.max_value != null ? { max_value: params.max_value } : {}),
+    ...(params.has_score != null ? { has_score: params.has_score } : {}),
+    page: params.page ?? 1,
+    per_page: params.per_page ?? 25,
+  };
+}
+
+async function fetchWorksPage(params: Omit<WorksListParams, "municipio"> = {}) {
+  const { data } = await api.get<PaginatedWorks>("/works", { params: buildWorksParams(params) });
+  return data;
+}
+
+async function fetchAllWorksPages(
+  params: Omit<WorksListParams, "municipio" | "page" | "per_page"> = {},
+) {
+  const out: WorkRead[] = [];
+  let page = 1;
+  const perPage = 1000;
+  while (true) {
+    const resp = await fetchWorksPage({ ...params, page, per_page: perPage });
+    out.push(...resp.items);
+    if (out.length >= resp.total || resp.items.length < perPage) break;
+    page++;
+  }
+  return out;
+}
+
 export const healthService = {
   health: async (): Promise<{ status: string } | Record<string, unknown>> =>
     (
@@ -361,37 +412,31 @@ export const worksService = {
   list: (params: WorksListParams = {}) =>
     callOrMock<PaginatedWorks>(
       async () => {
-        const { data } = await api.get<PaginatedWorks>("/works", {
-          params: {
-            ...(params.municipio ? { municipio: params.municipio } : {}),
-            ...(params.min_score != null ? { min_score: params.min_score } : {}),
-            ...(params.max_score != null ? { max_score: params.max_score } : {}),
-            ...(params.status ? { status: params.status } : {}),
-            ...(params.search ? { search: params.search } : {}),
-            ...(params.min_value != null ? { min_value: params.min_value } : {}),
-            ...(params.max_value != null ? { max_value: params.max_value } : {}),
-            ...(params.has_score != null ? { has_score: params.has_score } : {}),
-            page: params.page ?? 1,
-            per_page: params.per_page ?? 25,
-          },
-        });
-        return data;
+        const { municipio, page = 1, per_page = 25, ...rest } = params;
+        if (!municipio) return fetchWorksPage({ ...rest, page, per_page });
+
+        // O backend atual retorna 500 quando recebe `municipio`; buscamos sem
+        // esse parâmetro e aplicamos o recorte localmente para manter a tela estável.
+        const filtered = (await fetchAllWorksPages(rest)).filter((work) =>
+          matchesMunicipio(work, municipio),
+        );
+        const start = (page - 1) * per_page;
+        return {
+          items: filtered.slice(start, start + per_page),
+          total: filtered.length,
+          page,
+          per_page,
+          total_pages: toTotalPages(filtered.length, per_page),
+        };
       },
       { items: [], total: 0, page: 1, per_page: 25, total_pages: 0 },
     ),
 
   /** Busca TODAS as páginas iterando automaticamente (para agregações). */
   listAll: async (params: Omit<WorksListParams, "page" | "per_page"> = {}): Promise<WorkRead[]> => {
-    const out: WorkRead[] = [];
-    let page = 1;
-    const perPage = 1000;
-    while (true) {
-      const resp = await worksService.list({ ...params, page, per_page: perPage });
-      out.push(...resp.items);
-      if (out.length >= resp.total || resp.items.length < perPage) break;
-      page++;
-    }
-    return out;
+    const { municipio, ...rest } = params;
+    const works = await fetchAllWorksPages(rest);
+    return municipio ? works.filter((work) => matchesMunicipio(work, municipio)) : works;
   },
   get: (id: string | number) =>
     callOrMock<WorkRead | null>(async () => (await api.get<WorkRead>(`/works/${id}`)).data, null),
@@ -427,15 +472,68 @@ export interface InterMunicipalData {
   avg_delay_risk: number;
 }
 
+function calculateSummary(works: WorkRead[]): AnalyticsSummary {
+  const scores = works.map((w) => w.efficiency_score).filter((score): score is number => score != null);
+  const today = new Date();
+  return {
+    total_works: works.length,
+    average_efficiency_score: scores.length
+      ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(2))
+      : 0,
+    delayed_works: works.filter((w) => {
+      if (w.status?.toLowerCase().includes("atras")) return true;
+      if (!w.due_at || w.finished_at) return false;
+      return new Date(w.due_at) < today;
+    }).length,
+    critical_alerts: works.reduce(
+      (sum, w) =>
+        sum +
+        (w.alerts ?? []).filter((alert) =>
+          ["critical", "critico", "crítico", "danger"].includes(alert.severity?.toLowerCase()),
+        ).length,
+      0,
+    ),
+  };
+}
+
+function calculateTrends(works: WorkRead[]): TrendPoint[] {
+  const groups = new Map<string, { scoreSum: number; scoreCount: number; count: number; totalValue: number }>();
+
+  for (const work of works) {
+    const date = work.signed_at ?? work.created_at;
+    if (!date) continue;
+    const month = date.slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(month)) continue;
+    const group = groups.get(month) ?? { scoreSum: 0, scoreCount: 0, count: 0, totalValue: 0 };
+    group.count += 1;
+    group.totalValue += work.contract_value ?? 0;
+    if (work.efficiency_score != null) {
+      group.scoreSum += work.efficiency_score;
+      group.scoreCount += 1;
+    }
+    groups.set(month, group);
+  }
+
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, group]) => ({
+      month,
+      avg_score: group.scoreCount ? Number((group.scoreSum / group.scoreCount).toFixed(2)) : 0,
+      count: group.count,
+      total_value: Number(group.totalValue.toFixed(2)),
+    }));
+}
+
 export const analyticsService = {
   summary: (params: { municipio?: string } = {}) =>
     callOrMock<AnalyticsSummary>(
-      async () =>
-        (
-          await api.get<AnalyticsSummary>("/analytics/summary", {
-            params: params.municipio ? { municipio: params.municipio } : undefined,
-          })
-        ).data,
+      async () => {
+        if (!params.municipio) return (await api.get<AnalyticsSummary>("/analytics/summary")).data;
+        const works = (await fetchAllWorksPages()).filter((work) =>
+          matchesMunicipio(work, params.municipio),
+        );
+        return calculateSummary(works);
+      },
       {
         total_works: mockSummary.total_obras,
         average_efficiency_score: mockSummary.percentual_medio_execucao,
@@ -456,12 +554,13 @@ export const analyticsService = {
     ),
   trends: (params: { municipio?: string } = {}) =>
     callOrMock<TrendPoint[]>(
-      async () =>
-        (
-          await api.get<TrendPoint[]>("/analytics/trends", {
-            params: params.municipio ? { municipio: params.municipio } : undefined,
-          })
-        ).data,
+      async () => {
+        if (!params.municipio) return (await api.get<TrendPoint[]>("/analytics/trends")).data;
+        const works = (await fetchAllWorksPages()).filter((work) =>
+          matchesMunicipio(work, params.municipio),
+        );
+        return calculateTrends(works);
+      },
       [],
     ),
   interMunicipal: () =>

@@ -12,6 +12,114 @@ const CORS = {
   "Access-Control-Max-Age": "86400",
 };
 
+type BackendWork = {
+  municipio?: string | null;
+  efficiency_score?: number | null;
+  due_at?: string | null;
+  finished_at?: string | null;
+  status?: string | null;
+  signed_at?: string | null;
+  created_at?: string | null;
+  contract_value?: number | null;
+  alerts?: Array<{ severity?: string | null }>;
+};
+
+type PaginatedWorks = {
+  items: BackendWork[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+};
+
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json", ...CORS },
+  });
+
+const normalizeMunicipio = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s*-\s*rj$/, "")
+    .trim();
+
+const matchesMunicipio = (work: BackendWork, municipio: string) => {
+  const actual = normalizeMunicipio(work.municipio ?? "");
+  const expected = normalizeMunicipio(municipio);
+  return actual === expected || actual.includes(expected) || expected.includes(actual);
+};
+
+async function fetchWorks(root: string, params: URLSearchParams, init: RequestInit) {
+  const out: BackendWork[] = [];
+  const perPage = 1000;
+  let page = 1;
+
+  while (true) {
+    const next = new URLSearchParams(params);
+    next.delete("municipio");
+    next.set("page", String(page));
+    next.set("per_page", String(perPage));
+    const response = await fetch(`${root}/api/v1/works?${next.toString()}`, init);
+    if (!response.ok) throw new Error(`Argus backend respondeu ${response.status}`);
+    const payload = (await response.json()) as PaginatedWorks;
+    out.push(...(payload.items ?? []));
+    if (out.length >= payload.total || (payload.items ?? []).length < perPage) break;
+    page += 1;
+  }
+
+  return out;
+}
+
+function summarize(works: BackendWork[]) {
+  const scores = works.map((w) => w.efficiency_score).filter((score): score is number => score != null);
+  const now = new Date();
+  return {
+    total_works: works.length,
+    average_efficiency_score: scores.length
+      ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(2))
+      : 0,
+    delayed_works: works.filter((w) => {
+      if (w.status?.toLowerCase().includes("atras")) return true;
+      return Boolean(w.due_at && !w.finished_at && new Date(w.due_at) < now);
+    }).length,
+    critical_alerts: works.reduce(
+      (sum, w) =>
+        sum +
+        (w.alerts ?? []).filter((a) =>
+          ["critical", "critico", "crítico", "danger"].includes(a.severity?.toLowerCase() ?? ""),
+        ).length,
+      0,
+    ),
+  };
+}
+
+function trends(works: BackendWork[]) {
+  const groups = new Map<string, { scoreSum: number; scoreCount: number; count: number; totalValue: number }>();
+  for (const work of works) {
+    const month = (work.signed_at ?? work.created_at ?? "").slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(month)) continue;
+    const group = groups.get(month) ?? { scoreSum: 0, scoreCount: 0, count: 0, totalValue: 0 };
+    group.count += 1;
+    group.totalValue += work.contract_value ?? 0;
+    if (work.efficiency_score != null) {
+      group.scoreSum += work.efficiency_score;
+      group.scoreCount += 1;
+    }
+    groups.set(month, group);
+  }
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, group]) => ({
+      month,
+      avg_score: group.scoreCount ? Number((group.scoreSum / group.scoreCount).toFixed(2)) : 0,
+      count: group.count,
+      total_value: Number(group.totalValue.toFixed(2)),
+    }));
+}
+
 /**
  * Proxy transparente para a API FastAPI da Plataforma Argus.
  *
@@ -48,6 +156,30 @@ async function forward(request: Request, splat: string | undefined) {
   init.signal = controller.signal;
 
   try {
+    const query = new URL(request.url).searchParams;
+    const municipio = query.get("municipio");
+    if (request.method === "GET" && municipio) {
+      const works = (await fetchWorks(root, query, init)).filter((work) =>
+        matchesMunicipio(work, municipio),
+      );
+
+      if (path === "/api/v1/works") {
+        const page = Math.max(1, Number(query.get("page") ?? 1));
+        const perPage = Math.max(1, Number(query.get("per_page") ?? 25));
+        const start = (page - 1) * perPage;
+        return json({
+          items: works.slice(start, start + perPage),
+          total: works.length,
+          page,
+          per_page: perPage,
+          total_pages: Math.ceil(works.length / perPage),
+        });
+      }
+
+      if (path === "/api/v1/analytics/summary") return json(summarize(works));
+      if (path === "/api/v1/analytics/trends") return json(trends(works));
+    }
+
     const upstream = await fetch(target, init);
     const headers = new Headers();
     const passthrough = ["content-type", "content-disposition", "cache-control", "etag"];
