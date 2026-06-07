@@ -152,7 +152,12 @@ async function forward(request: Request, splat: string | undefined) {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 95_000);
+  // ETL endpoints (sync, recompute, retrain) podem demorar bem mais que
+  // requisições normais; damos folga para evitar 502 por timeout do proxy.
+  const isLongRunning =
+    /\/etl\/|\/recompute|\/ml\/retrain/i.test(path) || request.method !== "GET";
+  const timeoutMs = isLongRunning ? 270_000 : 95_000;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   init.signal = controller.signal;
 
   try {
