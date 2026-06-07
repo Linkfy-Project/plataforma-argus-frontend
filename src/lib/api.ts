@@ -347,6 +347,57 @@ export interface WorksListParams {
   per_page?: number;
 }
 
+const normalizeMunicipio = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s*-\s*rj$/, "")
+    .trim();
+
+const matchesMunicipio = (work: WorkRead, municipio?: string) => {
+  if (!municipio) return true;
+  const actual = normalizeMunicipio(work.municipio ?? "");
+  const expected = normalizeMunicipio(municipio);
+  return actual === expected || actual.includes(expected) || expected.includes(actual);
+};
+
+const toTotalPages = (total: number, perPage: number) => Math.max(1, Math.ceil(total / perPage));
+
+function buildWorksParams(params: Omit<WorksListParams, "municipio">) {
+  return {
+    ...(params.min_score != null ? { min_score: params.min_score } : {}),
+    ...(params.max_score != null ? { max_score: params.max_score } : {}),
+    ...(params.status ? { status: params.status } : {}),
+    ...(params.search ? { search: params.search } : {}),
+    ...(params.min_value != null ? { min_value: params.min_value } : {}),
+    ...(params.max_value != null ? { max_value: params.max_value } : {}),
+    ...(params.has_score != null ? { has_score: params.has_score } : {}),
+    page: params.page ?? 1,
+    per_page: params.per_page ?? 25,
+  };
+}
+
+async function fetchWorksPage(params: Omit<WorksListParams, "municipio"> = {}) {
+  const { data } = await api.get<PaginatedWorks>("/works", { params: buildWorksParams(params) });
+  return data;
+}
+
+async function fetchAllWorksPages(
+  params: Omit<WorksListParams, "municipio" | "page" | "per_page"> = {},
+) {
+  const out: WorkRead[] = [];
+  let page = 1;
+  const perPage = 1000;
+  while (true) {
+    const resp = await fetchWorksPage({ ...params, page, per_page: perPage });
+    out.push(...resp.items);
+    if (out.length >= resp.total || resp.items.length < perPage) break;
+    page++;
+  }
+  return out;
+}
+
 export const healthService = {
   health: async (): Promise<{ status: string } | Record<string, unknown>> =>
     (
@@ -361,21 +412,22 @@ export const worksService = {
   list: (params: WorksListParams = {}) =>
     callOrMock<PaginatedWorks>(
       async () => {
-        const { data } = await api.get<PaginatedWorks>("/works", {
-          params: {
-            ...(params.municipio ? { municipio: params.municipio } : {}),
-            ...(params.min_score != null ? { min_score: params.min_score } : {}),
-            ...(params.max_score != null ? { max_score: params.max_score } : {}),
-            ...(params.status ? { status: params.status } : {}),
-            ...(params.search ? { search: params.search } : {}),
-            ...(params.min_value != null ? { min_value: params.min_value } : {}),
-            ...(params.max_value != null ? { max_value: params.max_value } : {}),
-            ...(params.has_score != null ? { has_score: params.has_score } : {}),
-            page: params.page ?? 1,
-            per_page: params.per_page ?? 25,
-          },
-        });
-        return data;
+        const { municipio, page = 1, per_page = 25, ...rest } = params;
+        if (!municipio) return fetchWorksPage({ ...rest, page, per_page });
+
+        // O backend atual retorna 500 quando recebe `municipio`; buscamos sem
+        // esse parâmetro e aplicamos o recorte localmente para manter a tela estável.
+        const filtered = (await fetchAllWorksPages(rest)).filter((work) =>
+          matchesMunicipio(work, municipio),
+        );
+        const start = (page - 1) * per_page;
+        return {
+          items: filtered.slice(start, start + per_page),
+          total: filtered.length,
+          page,
+          per_page,
+          total_pages: toTotalPages(filtered.length, per_page),
+        };
       },
       { items: [], total: 0, page: 1, per_page: 25, total_pages: 0 },
     ),
