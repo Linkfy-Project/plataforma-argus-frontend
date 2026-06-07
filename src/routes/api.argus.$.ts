@@ -156,6 +156,30 @@ async function forward(request: Request, splat: string | undefined) {
   init.signal = controller.signal;
 
   try {
+    const query = new URL(request.url).searchParams;
+    const municipio = query.get("municipio");
+    if (request.method === "GET" && municipio) {
+      const works = (await fetchWorks(root, query, init)).filter((work) =>
+        matchesMunicipio(work, municipio),
+      );
+
+      if (path === "/api/v1/works") {
+        const page = Math.max(1, Number(query.get("page") ?? 1));
+        const perPage = Math.max(1, Number(query.get("per_page") ?? 25));
+        const start = (page - 1) * perPage;
+        return json({
+          items: works.slice(start, start + perPage),
+          total: works.length,
+          page,
+          per_page: perPage,
+          total_pages: Math.ceil(works.length / perPage),
+        });
+      }
+
+      if (path === "/api/v1/analytics/summary") return json(summarize(works));
+      if (path === "/api/v1/analytics/trends") return json(trends(works));
+    }
+
     const upstream = await fetch(target, init);
     const headers = new Headers();
     const passthrough = ["content-type", "content-disposition", "cache-control", "etag"];
