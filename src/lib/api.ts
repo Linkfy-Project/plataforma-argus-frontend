@@ -1,3 +1,28 @@
+/**
+ * Camada HTTP da Plataforma ARGUS.
+ *
+ * Organizada por domínio de serviço. Cada service é um objeto exportado
+ * com métodos que encapsulam chamadas ao backend FastAPI.
+ *
+ * ==========================================================================
+ * SERVIÇOS (por domínio):
+ *   healthService       — Health check da API
+ *   dashboardService    — Dashboard Executivo (summary, priority queue, riscos)
+ *   analyticsService    — Analytics legado (summary, rankings, map, trends)
+ *   worksService        — Obras (CRUD, recomputação, score explain)
+ *   obrasService        — Adaptação legacy (obras → domínio frontend)
+ *   municipiosService   — Municípios derivados de obras
+ *   territoryService    — Análise territorial Macaé-RJ
+ *   alertasService      — Alertas com workflow (novo + legado)
+ *   contratosService    — Contratos (novo + legado)
+ *   fornecedoresService — Ranking e detalhe de fornecedores
+ *   etlService          — ETL e sincronização de dados
+ *   geoService          — Camadas geográficas
+ *   mlService           — Machine Learning
+ *   exportsService      — Exportação CSV/XLSX
+ * ==========================================================================
+ */
+
 import axios, { AxiosError } from "axios";
 import { mockObras, mockMunicipios, mockContratos, mockAlertas, mockSummary } from "@/data/mock";
 import type {
@@ -15,7 +40,25 @@ import type {
   ScoringRules,
   SyncStatus,
   PaginatedWorks,
+  DashboardExecutiveSummary,
+  PriorityQueueItem,
+  RiskDistributionItem,
+  TerritoryOverview,
+  NeighborhoodListItem,
+  NeighborhoodDetail,
+  HeatmapResponse,
+  DataQualityReport,
+  SupplierRankingItem,
+  SupplierDetailRead,
+  ContractItem,
+  ContractDetailRead,
+  AlertWorkflowItem,
+  AlertStatusValue,
 } from "@/types";
+
+/* ========================================================================== */
+/* Tipos auxiliares exportados                                                */
+/* ========================================================================== */
 
 export type GeoFeatureCollection = {
   type: "FeatureCollection";
@@ -33,27 +76,25 @@ export type GeoFeatureCollection = {
   }>;
 };
 
-/**
- * Camada HTTP da Plataforma Argus.
- *
- * Backend: FastAPI (Render). Endpoints reais conforme `/openapi.json`:
- *   GET  /health
- *   GET  /api/v1/works                ?municipio=&min_score=&max_score=&page=&per_page=
- *   GET  /api/v1/works/{work_id}
- *   POST /api/v1/works/{work_id}/recompute
- *   POST /api/v1/works/recompute-all
- *   GET  /api/v1/analytics/summary    ?municipio=
- *   GET  /api/v1/analytics/rankings   ?limit=
- *   GET  /api/v1/analytics/map/geojson
- *   POST /api/v1/ml/predict
- *   GET  /api/v1/exports/works.csv
- *   GET  /api/v1/exports/works.xlsx
- *   GET  /api/v1/etl/sync-status
- *
- * Mocks (`src/data/mock`) só são usados como fallback de
- * desenvolvimento quando a API estiver indisponível, ou quando
- * `VITE_USE_MOCK=true` for explicitamente definido.
- */
+export interface TrendPoint {
+  month: string;
+  avg_score: number;
+  count: number;
+  total_value: number;
+}
+
+export interface InterMunicipalData {
+  municipio: string;
+  total_works: number;
+  avg_score: number;
+  total_value: number;
+  avg_delay_risk: number;
+}
+
+/* ========================================================================== */
+/* Configuração HTTP                                                          */
+/* ========================================================================== */
+
 /**
  * Por padrão usamos o proxy interno (`/api/argus`) para evitar problemas
  * de CORS com o backend hospedado no Render. Caso seja necessário apontar
@@ -95,17 +136,33 @@ api.interceptors.response.use(
 /**
  * Executa `fn`. Quando `VITE_USE_MOCK=true`, devolve o `mockValue` em vez
  * de chamar a API. Em produção (`USE_MOCK=false`) os erros sobem para o
- * React Query — nunca substituímos silenciosamente dados reais por mocks,
- * inclusive quando a API responde com lista vazia.
+ * React Query — nunca substituímos silenciosamente dados reais por mocks.
  */
 async function callOrMock<T>(fn: () => Promise<T>, mockValue: T): Promise<T> {
   if (USE_MOCK) return mockValue;
   return await fn();
 }
 
-/* -------------------------------------------------------------------------- */
+/**
+ * Tenta executar `newFn`. Se retornar 404 ou erro, cai para `fallbackFn`.
+ * Usado para endpoints novos que ainda podem não existir no backend.
+ */
+async function withFallback<T>(newFn: () => Promise<T>, fallbackFn: () => Promise<T>): Promise<T> {
+  try {
+    return await newFn();
+  } catch (err) {
+    const axiosErr = err as { response?: { status?: number } };
+    if (axiosErr?.response?.status === 404) {
+      console.warn("[Argus API] Endpoint não encontrado, usando fallback de compatibilidade.");
+      return await fallbackFn();
+    }
+    throw err;
+  }
+}
+
+/* ========================================================================== */
 /* Adaptadores: WorkRead (backend) -> Obra (domínio do frontend)              */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 const SEVERITY_TO_NIVEL: Record<string, AlertaNivel> = {
   info: "Baixo",
@@ -262,9 +319,6 @@ function avg(nums: number[]): number {
 
 /**
  * Normaliza o nome do município ignorando acentos e caixa alta/baixa.
- * - "MACAE", "Macae", "Macaé" → "Macaé-RJ"
- * - "RIO DE JANEIRO", "Rio de Janeiro" → "Rio de Janeiro"
- * Usa uma chave de agrupamento sem acentos + uppercase para detectar duplicatas.
  */
 const CANONICAL_MUNICIPIO: Record<string, string> = {
   macae: "Macaé-RJ",
@@ -274,19 +328,16 @@ const CANONICAL_MUNICIPIO: Record<string, string> = {
 export function normalizeMunicipioName(raw: string): string {
   const cleaned = raw
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // remove acentos
-    .replace(/[-–\s]+/g, " ")       // normaliza espaços/hífens
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[-–\s]+/g, " ")
     .trim()
     .toLowerCase();
-  // Se tem mapeamento canônico, usa
   if (CANONICAL_MUNICIPIO[cleaned]) return CANONICAL_MUNICIPIO[cleaned];
-  // Caso genérico: Title Case
   return cleaned.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /**
  * Agrupa e mescla dados intermunicipais normalizando nomes de municípios.
- * Valores numéricos são somados; scores são re-calculados como média ponderada.
  */
 export function mergeInterMunicipalData(list: InterMunicipalData[]): InterMunicipalData[] {
   const map = new Map<string, InterMunicipalData>();
@@ -297,7 +348,6 @@ export function mergeInterMunicipalData(list: InterMunicipalData[]): InterMunici
       const totalWorks = existing.total_works + item.total_works;
       existing.total_works = totalWorks;
       existing.total_value += item.total_value;
-      // Média ponderada do score
       existing.avg_score =
         (existing.avg_score * existing.total_works + item.avg_score * item.total_works) / totalWorks;
       existing.avg_delay_risk =
@@ -330,9 +380,9 @@ function summaryFromAnalytics(s: AnalyticsSummary, works?: WorkRead[]): Dashboar
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Services                                                                   */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+/* Utilitários internos para Works                                            */
+/* ========================================================================== */
 
 export interface WorksListParams {
   municipio?: string;
@@ -398,80 +448,6 @@ async function fetchAllWorksPages(
   return out;
 }
 
-export const healthService = {
-  health: async (): Promise<{ status: string } | Record<string, unknown>> =>
-    (
-      await axios.get(IS_ABSOLUTE ? `${ROOT}/health` : `${ROOT}/health`, {
-        timeout: COLD_START_TIMEOUT_MS,
-      })
-    ).data,
-};
-
-export const worksService = {
-  /** Busca página única — retorna resposta paginada completa. */
-  list: (params: WorksListParams = {}) =>
-    callOrMock<PaginatedWorks>(
-      async () => {
-        const { municipio, page = 1, per_page = 25, ...rest } = params;
-        if (!municipio) return fetchWorksPage({ ...rest, page, per_page });
-
-        // O backend atual retorna 500 quando recebe `municipio`; buscamos sem
-        // esse parâmetro e aplicamos o recorte localmente para manter a tela estável.
-        const filtered = (await fetchAllWorksPages(rest)).filter((work) =>
-          matchesMunicipio(work, municipio),
-        );
-        const start = (page - 1) * per_page;
-        return {
-          items: filtered.slice(start, start + per_page),
-          total: filtered.length,
-          page,
-          per_page,
-          total_pages: toTotalPages(filtered.length, per_page),
-        };
-      },
-      { items: [], total: 0, page: 1, per_page: 25, total_pages: 0 },
-    ),
-
-  /** Busca TODAS as páginas iterando automaticamente (para agregações). */
-  listAll: async (params: Omit<WorksListParams, "page" | "per_page"> = {}): Promise<WorkRead[]> => {
-    const { municipio, ...rest } = params;
-    const works = await fetchAllWorksPages(rest);
-    return municipio ? works.filter((work) => matchesMunicipio(work, municipio)) : works;
-  },
-  get: (id: string | number) =>
-    callOrMock<WorkRead | null>(async () => (await api.get<WorkRead>(`/works/${id}`)).data, null),
-  create: async (payload: Partial<WorkRead>): Promise<WorkRead> =>
-    (await api.post<WorkRead>("/works", payload)).data,
-  recompute: async (id: string | number): Promise<WorkRead> =>
-    (await api.post<WorkRead>(`/works/${id}/recompute`)).data,
-  recomputeAll: async (): Promise<unknown> => (await api.post("/works/recompute-all")).data,
-  scoreExplain: (id: string | number) =>
-    callOrMock<ScoreExplain | null>(
-      async () => (await api.get<ScoreExplain>(`/works/${id}/score-explain`)).data,
-      null,
-    ),
-  scoringRules: () =>
-    callOrMock<ScoringRules | null>(
-      async () => (await api.get<ScoringRules>("/works/scoring/rules")).data,
-      null,
-    ),
-};
-
-export interface TrendPoint {
-  month: string;
-  avg_score: number;
-  count: number;
-  total_value: number;
-}
-
-export interface InterMunicipalData {
-  municipio: string;
-  total_works: number;
-  avg_score: number;
-  total_value: number;
-  avg_delay_risk: number;
-}
-
 function calculateSummary(works: WorkRead[]): AnalyticsSummary {
   const scores = works.map((w) => w.efficiency_score).filter((score): score is number => score != null);
   const today = new Date();
@@ -524,6 +500,116 @@ function calculateTrends(works: WorkRead[]): TrendPoint[] {
     }));
 }
 
+/* ========================================================================== */
+/* 1. healthService                                                           */
+/* ========================================================================== */
+
+export const healthService = {
+  health: async (): Promise<{ status: string } | Record<string, unknown>> =>
+    (
+      await axios.get(IS_ABSOLUTE ? `${ROOT}/health` : `${ROOT}/health`, {
+        timeout: COLD_START_TIMEOUT_MS,
+      })
+    ).data,
+};
+
+/* ========================================================================== */
+/* 2. dashboardService — Dashboard Executivo                                  */
+/* ========================================================================== */
+
+export const dashboardService = {
+  /**
+   * Resumo executivo com todos os KPIs do painel.
+   * Endpoint novo: GET /dashboard/summary?municipio=
+   */
+  executiveSummary: (municipio = "Macae") =>
+    callOrMock<DashboardExecutiveSummary>(
+      async () => (await api.get<DashboardExecutiveSummary>("/dashboard/summary", { params: { municipio } })).data,
+      {
+        municipio: "Macaé-RJ",
+        ultima_atualizacao: new Date().toISOString(),
+        obras_monitoradas: 0,
+        valor_total_contratado: 0,
+        valor_total_pago: 0,
+        valor_potencial_em_risco: 0,
+        obras_criticas: 0,
+        obras_alto_risco: 0,
+        obras_em_atencao: 0,
+        obras_eficientes: 0,
+        obras_atrasadas: 0,
+        obras_sem_geolocalizacao: 0,
+        contratos_com_aditivos_altos: 0,
+        alertas_criticos: 0,
+        alertas_totais: 0,
+        fornecedores_monitorados: 0,
+        bairros_monitorados: 0,
+        score_medio: 0,
+        data_quality_score: 0,
+      },
+    ),
+
+  /**
+   * Fila priorizada de obras que o gestor deve avaliar primeiro.
+   * Endpoint novo: GET /dashboard/priority-queue?municipio=&limit=
+   */
+  priorityQueue: (municipio = "Macae", limit = 10) =>
+    callOrMock<PriorityQueueItem[]>(
+      async () =>
+        (await api.get<PriorityQueueItem[]>("/dashboard/priority-queue", { params: { municipio, limit } })).data,
+      [],
+    ),
+
+  /**
+   * Distribuição de obras por faixa de risco.
+   * Endpoint novo: GET /dashboard/risk-distribution?municipio=
+   */
+  riskDistribution: (municipio = "Macae") =>
+    callOrMock<RiskDistributionItem[]>(
+      async () =>
+        (await api.get<RiskDistributionItem[]>("/dashboard/risk-distribution", { params: { municipio } })).data,
+      [],
+    ),
+
+  /**
+   * Ranking de bairros com maior risco.
+   * Endpoint novo: GET /dashboard/top-neighborhoods-risk?municipio=&limit=
+   */
+  topNeighborhoodsRisk: (municipio = "Macae", limit = 10) =>
+    callOrMock(
+      async () =>
+        (await api.get("/dashboard/top-neighborhoods-risk", { params: { municipio, limit } })).data,
+      [],
+    ),
+
+  /**
+   * Ranking de fornecedores com maior risco.
+   * Endpoint novo: GET /dashboard/top-suppliers-risk?municipio=&limit=
+   */
+  topSuppliersRisk: (municipio = "Macae", limit = 10) =>
+    callOrMock(
+      async () =>
+        (await api.get("/dashboard/top-suppliers-risk", { params: { municipio, limit } })).data,
+      [],
+    ),
+
+  /**
+   * Summary legado — mantém compatibilidade com páginas existentes.
+   * Tenta o endpoint novo primeiro, fallback para analytics.
+   */
+  getSummary: async (): Promise<DashboardSummary> => {
+    try {
+      const [s, works] = await Promise.all([analyticsService.summary(), worksService.listAll({})]);
+      return summaryFromAnalytics(s, works);
+    } catch {
+      return mockSummary;
+    }
+  },
+};
+
+/* ========================================================================== */
+/* 3. analyticsService — Analytics legado                                     */
+/* ========================================================================== */
+
 export const analyticsService = {
   summary: (params: { municipio?: string } = {}) =>
     callOrMock<AnalyticsSummary>(
@@ -573,121 +659,63 @@ export const analyticsService = {
     ),
 };
 
-export const etlService = {
-  syncStatus: () =>
-    callOrMock<SyncStatus>(async () => (await api.get<SyncStatus>("/etl/sync-status")).data, {}),
-  syncPublicData: async (params: { municipio?: string; ano?: number } = {}) =>
-    (
-      await api.post("/etl/sync-public-data", null, {
-        params: {
-          municipio: params.municipio ?? "Macae",
-          ...(params.ano ? { ano: params.ano } : {}),
-        },
-      })
-    ).data,
-  runTcerj: async (params: { municipio?: string; ano?: number } = {}) =>
-    (
-      await api.post("/etl/tcerj/run", null, {
-        params: {
-          municipio: params.municipio ?? "Macae",
-          ...(params.ano ? { ano: params.ano } : {}),
-        },
-      })
-    ).data,
-  runMacaePortal: async () => (await api.post("/etl/macae-portal/run")).data,
-  importCsv: async (params: { path: string; municipio?: string }) =>
-    (
-      await api.post("/etl/import-csv", null, {
-        params: { path: params.path, municipio: params.municipio ?? "Macae" },
-      })
-    ).data,
-  sinapiBenchmarks: async () => (await api.get("/etl/sinapi/benchmarks")).data,
-  ipcaIndex: async () => (await api.get("/etl/inflation/ipca")).data,
-  testInflation: async (params: { value?: number; source_date?: string }) =>
-    (await api.get("/etl/inflation/test-correction", { params })).data,
-};
+/* ========================================================================== */
+/* 4. worksService — Obras (backend raw)                                      */
+/* ========================================================================== */
 
-export const geoService = {
-  layer: (layerType: "municipality" | "census_tract" | "road") =>
-    callOrMock<GeoFeatureCollection>(
-      async () => (await api.get<GeoFeatureCollection>(`/geo-layers/${layerType}`)).data,
-      { type: "FeatureCollection", features: [] },
+export const worksService = {
+  /** Busca página única — retorna resposta paginada completa. */
+  list: (params: WorksListParams = {}) =>
+    callOrMock<PaginatedWorks>(
+      async () => {
+        const { municipio, page = 1, per_page = 25, ...rest } = params;
+        if (!municipio) return fetchWorksPage({ ...rest, page, per_page });
+
+        // O backend atual retorna 500 quando recebe `municipio`; buscamos sem
+        // esse parâmetro e aplicamos o recorte localmente para manter a tela estável.
+        const filtered = (await fetchAllWorksPages(rest)).filter((work) =>
+          matchesMunicipio(work, municipio),
+        );
+        const start = (page - 1) * per_page;
+        return {
+          items: filtered.slice(start, start + per_page),
+          total: filtered.length,
+          page,
+          per_page,
+          total_pages: toTotalPages(filtered.length, per_page),
+        };
+      },
+      { items: [], total: 0, page: 1, per_page: 25, total_pages: 0 },
+    ),
+
+  /** Busca TODAS as páginas iterando automaticamente (para agregações). */
+  listAll: async (params: Omit<WorksListParams, "page" | "per_page"> = {}): Promise<WorkRead[]> => {
+    const { municipio, ...rest } = params;
+    const works = await fetchAllWorksPages(rest);
+    return municipio ? works.filter((work) => matchesMunicipio(work, municipio)) : works;
+  },
+  get: (id: string | number) =>
+    callOrMock<WorkRead | null>(async () => (await api.get<WorkRead>(`/works/${id}`)).data, null),
+  create: async (payload: Partial<WorkRead>): Promise<WorkRead> =>
+    (await api.post<WorkRead>("/works", payload)).data,
+  recompute: async (id: string | number): Promise<WorkRead> =>
+    (await api.post<WorkRead>(`/works/${id}/recompute`)).data,
+  recomputeAll: async (): Promise<unknown> => (await api.post("/works/recompute-all")).data,
+  scoreExplain: (id: string | number) =>
+    callOrMock<ScoreExplain | null>(
+      async () => (await api.get<ScoreExplain>(`/works/${id}/score-explain`)).data,
+      null,
+    ),
+  scoringRules: () =>
+    callOrMock<ScoringRules | null>(
+      async () => (await api.get<ScoringRules>("/works/scoring/rules")).data,
+      null,
     ),
 };
 
-export const mlService = {
-  predict: async (payload: Record<string, unknown>) =>
-    (await api.post("/ml/predict", payload)).data,
-  trainBaseline: async () => (await api.post("/ml/train-baseline")).data,
-  retrainReal: async () => (await api.post("/ml/retrain-real")).data,
-};
-
-export const exportsService = {
-  worksCsvUrl: () => `${ROOT}/api/v1/exports/works.csv`,
-  worksXlsxUrl: () => `${ROOT}/api/v1/exports/works.xlsx`,
-
-  /** Download do CSV com tratamento de erro via fetch + blob. */
-  downloadCsv: async (filename = "argus-obras.csv"): Promise<void> => {
-    const url = exportsService.worksCsvUrl();
-    const res = await fetch(url, { signal: AbortSignal.timeout(COLD_START_TIMEOUT_MS) });
-    if (!res.ok) {
-      throw new Error(`Falha ao exportar CSV (HTTP ${res.status}). Verifique se o backend está disponível.`);
-    }
-    const blob = await res.blob();
-    triggerDownload(blob, filename, "text/csv");
-  },
-
-  /** Download do XLSX com tratamento de erro via fetch + blob. */
-  downloadXlsx: async (filename = "argus-obras.xlsx"): Promise<void> => {
-    const url = exportsService.worksXlsxUrl();
-    const res = await fetch(url, { signal: AbortSignal.timeout(COLD_START_TIMEOUT_MS) });
-    if (!res.ok) {
-      throw new Error(`Falha ao exportar XLSX (HTTP ${res.status}). Verifique se o backend está disponível.`);
-    }
-    const blob = await res.blob();
-    triggerDownload(blob, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  },
-
-  /** Exporta dados atuais como CSV gerado no cliente (fallback). */
-  exportClientCsv: (rows: Record<string, unknown>[], filename = "argus-relatorio.csv"): void => {
-    if (!rows.length) throw new Error("Nenhum dado disponível para exportação.");
-    const headers = Object.keys(rows[0]);
-    const csv = [
-      headers.join(";"),
-      ...rows.map((r) =>
-        headers
-          .map((h) => {
-            const v = r[h];
-            if (v == null) return "";
-            const s = String(v);
-            return s.includes(";") || s.includes('"') || s.includes("\n")
-              ? `"${s.replace(/"/g, '""')}"`
-              : s;
-          })
-          .join(";"),
-      ),
-    ].join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
-    triggerDownload(blob, filename, "text/csv");
-  },
-};
-
-/** Cria um object URL temporário e dispara o download via link programático. */
-function triggerDownload(blob: Blob, filename: string, _mime: string): void {
-  const objectUrl = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = objectUrl;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
-}
-
-/* -------------------------------------------------------------------------- */
-/* Services de domínio (Obra, Contrato, Alerta, Município, Summary).          */
-/* Mantêm a API antiga das páginas, agora alimentada pelo backend real.       */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+/* 5. obrasService — Adaptação legacy (obras → domínio frontend)              */
+/* ========================================================================== */
 
 export interface ObrasListParams {
   municipio?: string;
@@ -711,7 +739,6 @@ export type ObrasPaginatedResult = {
 };
 
 export const obrasService = {
-  /** Busca paginada de obras com filtros delegados ao backend. */
   list: async (params: ObrasListParams = {}): Promise<ObrasPaginatedResult> => {
     const resp = await worksService.list({
       municipio: params.municipio,
@@ -749,6 +776,10 @@ export const obrasService = {
   },
 };
 
+/* ========================================================================== */
+/* 6. municipiosService                                                       */
+/* ========================================================================== */
+
 export const municipiosService = {
   list: async (): Promise<Municipio[]> => {
     const works = await worksService.listAll({});
@@ -757,31 +788,411 @@ export const municipiosService = {
   },
 };
 
+/* ========================================================================== */
+/* 7. territoryService — Análise territorial Macaé-RJ                         */
+/* ========================================================================== */
+
+export const territoryService = {
+  /** Visão geral territorial. */
+  macaeOverview: () =>
+    callOrMock<TerritoryOverview>(
+      async () => (await api.get<TerritoryOverview>("/territory/macae/overview")).data,
+      {
+        municipio: "Macaé-RJ",
+        bairros_monitorados: 0,
+        obras_monitoradas: 0,
+        valor_total_contratado: 0,
+        score_medio: 0,
+        bairros_criticos: 0,
+        obras_sem_bairro: 0,
+        obras_sem_geolocalizacao: 0,
+        bairro_mais_critico: "",
+        bairro_maior_valor: "",
+        bairro_mais_atrasos: "",
+        recomendacoes: [],
+      },
+    ),
+
+  /** Lista de bairros com indicadores de risco. */
+  macaeNeighborhoods: () =>
+    callOrMock<NeighborhoodListItem[]>(
+      async () => (await api.get<NeighborhoodListItem[]>("/territory/macae/neighborhoods")).data,
+      [],
+    ),
+
+  /** Detalhe de um bairro específico. */
+  macaeNeighborhoodDetail: (bairro: string) =>
+    callOrMock<NeighborhoodDetail | null>(
+      async () =>
+        (await api.get<NeighborhoodDetail>(`/territory/macae/neighborhoods/${encodeURIComponent(bairro)}`)).data,
+      null,
+    ),
+
+  /** Heatmap territorial GeoJSON. */
+  macaeHeatmap: () =>
+    callOrMock<HeatmapResponse>(
+      async () => (await api.get<HeatmapResponse>("/territory/macae/heatmap")).data,
+      { type: "FeatureCollection", features: [] },
+    ),
+
+  /** Relatório de qualidade dos dados territoriais. */
+  macaeDataQuality: () =>
+    callOrMock<DataQualityReport>(
+      async () => (await api.get<DataQualityReport>("/territory/macae/data-quality")).data,
+      {
+        total_obras: 0,
+        obras_sem_bairro: 0,
+        obras_sem_geolocalizacao: 0,
+        obras_sem_valor: 0,
+        obras_sem_fornecedor: 0,
+        obras_sem_prazo: 0,
+        data_quality_score: 0,
+        obras_para_saneamento: [],
+      },
+    ),
+};
+
+/* ========================================================================== */
+/* 8. alertasService — Alertas com workflow (novo + legado)                   */
+/* ========================================================================== */
+
+export interface AlertasListFilters {
+  municipio?: string;
+  severity?: string;
+  status?: string;
+  tipo?: string;
+  bairro?: string;
+  fornecedor?: string;
+  obra_id?: number;
+  search?: string;
+}
+
+export const alertasService = {
+  /**
+   * Lista alertas — retorna Alerta[] (tipo legado) para compatibilidade
+   * com páginas existentes (_app.alertas, cidadao.notificacoes, etc).
+   */
+  list: async (_params: { nivel?: string } = {}): Promise<Alerta[]> => {
+    const works = await worksService.listAll({});
+    if (USE_MOCK && works.length === 0) return mockAlertas;
+    return alertasFromWorks(works);
+  },
+
+  /**
+   * Lista alertas do endpoint novo com filtros ricos (workflow).
+   * Retorna AlertWorkflowItem[] com dados enriquecidos (status, motivo, ação sugerida).
+   * Fallback: endpoint legado que deriva de worksService.listAll.
+   */
+  listWorkflow: async (filters: AlertasListFilters = {}): Promise<AlertWorkflowItem[]> => {
+    return withFallback(
+      async () => {
+        const params: Record<string, unknown> = {};
+        if (filters.municipio) params.municipio = filters.municipio;
+        if (filters.severity) params.severity = filters.severity;
+        if (filters.status) params.status = filters.status;
+        if (filters.tipo) params.tipo = filters.tipo;
+        if (filters.bairro) params.bairro = filters.bairro;
+        if (filters.fornecedor) params.fornecedor = filters.fornecedor;
+        if (filters.obra_id != null) params.obra_id = filters.obra_id;
+        if (filters.search) params.search = filters.search;
+        return (await api.get<AlertWorkflowItem[]>("/alerts", { params })).data;
+      },
+      async () => {
+        const works = await worksService.listAll({});
+        const alerts: AlertWorkflowItem[] = [];
+        for (const w of works) {
+          for (const a of w.alerts ?? []) {
+            alerts.push({
+              id: a.id,
+              work_id: w.id,
+              tipo: humanizeCode(a.code),
+              code: a.code,
+              severity: a.severity,
+              nivel: severityToNivel(a.severity),
+              status: "Novo",
+              obra_nome: w.object_description?.trim() || `Obra #${w.id}`,
+              municipio: w.municipio ?? null,
+              bairro: w.neighborhood ?? null,
+              fornecedor: w.contractor_name ?? null,
+              descricao: a.message,
+              motivo: null,
+              acao_sugerida: suggestAction(a.code),
+              data_deteccao: a.created_at,
+              score_argus: w.efficiency_score ?? null,
+              valor_contratado: w.contract_value ?? null,
+            });
+          }
+        }
+        return alerts.filter((a) => {
+          if (filters.municipio && a.municipio !== filters.municipio) return false;
+          if (filters.severity && a.severity !== filters.severity) return false;
+          if (filters.status && a.status !== filters.status) return false;
+          if (filters.obra_id != null && a.work_id !== filters.obra_id) return false;
+          if (filters.search) {
+            const k = filters.search.toLowerCase();
+            const match = [a.descricao, a.code, a.obra_nome, a.municipio, a.fornecedor]
+              .filter(Boolean)
+              .some((v) => v!.toLowerCase().includes(k));
+            if (!match) return false;
+          }
+          return true;
+        });
+      },
+    );
+  },
+
+  /**
+   * Atualiza status de um alerta.
+   * Endpoint novo: PATCH /alerts/{id}/status
+   */
+  updateStatus: async (id: number, status: AlertStatusValue): Promise<AlertWorkflowItem> => {
+    return (await api.patch<AlertWorkflowItem>(`/alerts/${id}/status`, { status })).data;
+  },
+};
+
+/* ========================================================================== */
+/* 9. contratosService — Contratos (novo + legado)                            */
+/* ========================================================================== */
+
+export interface ContratosListFilters {
+  municipio?: string;
+  fornecedor?: string;
+  secretaria?: string;
+  bairro?: string;
+  status?: string;
+  risco?: string;
+  com_aditivo?: boolean;
+  vencendo?: boolean;
+  vencido?: boolean;
+  search?: string;
+}
+
 export const contratosService = {
-  list: async (_params: { q?: string } = {}): Promise<Contrato[]> => {
+  /**
+   * Lista contratos do endpoint novo com filtros ricos.
+   * Fallback: endpoint legado que deriva de worksService.listAll.
+   */
+  list: async (filters: ContratosListFilters = {}): Promise<Contrato[]> => {
+    return withFallback(
+      async () => {
+        const params: Record<string, unknown> = {};
+        if (filters.municipio) params.municipio = filters.municipio;
+        if (filters.fornecedor) params.fornecedor = filters.fornecedor;
+        if (filters.secretaria) params.secretaria = filters.secretaria;
+        if (filters.bairro) params.bairro = filters.bairro;
+        if (filters.status) params.status = filters.status;
+        if (filters.risco) params.risco = filters.risco;
+        if (filters.com_aditivo != null) params.com_aditivo = filters.com_aditivo;
+        if (filters.vencendo != null) params.vencendo = filters.vencendo;
+        if (filters.vencido != null) params.vencido = filters.vencido;
+        if (filters.search) params.search = filters.search;
+        const items = (await api.get<ContractItem[]>("/contracts", { params })).data;
+        // Adaptar ContractItem → Contrato (legado) para manter compatibilidade
+        return items.map((c) => ({
+          id: c.id,
+          numero: c.numero_contrato ?? `S/N-${c.work_id}`,
+          obra_id: String(c.work_id),
+          obra_nome: c.obra_nome ?? c.objeto ?? `Obra #${c.work_id}`,
+          municipio: c.municipio ?? "—",
+          valor_contratado: c.valor_original ?? c.valor_atual ?? 0,
+          valor_executado: c.valor_pago ?? 0,
+          empresa: c.fornecedor ?? "—",
+          data_assinatura: c.data_inicio ?? "",
+          status: c.status ?? "Vigente",
+        }));
+      },
+      // Fallback de compatibilidade
+      async () => {
+        const works = await worksService.listAll({});
+        if (USE_MOCK && works.length === 0) return mockContratos;
+        return contratosFromWorks(works);
+      },
+    );
+  },
+
+  /** Busca detalhe de um contrato. */
+  get: async (id: string): Promise<ContractDetailRead | null> => {
+    return withFallback(
+      async () => (await api.get<ContractDetailRead>(`/contracts/${id}`)).data,
+      async () => null,
+    );
+  },
+
+  /** Lista legada (mantida para compatibilidade). */
+  listLegacy: async (_params: { q?: string } = {}): Promise<Contrato[]> => {
     const works = await worksService.listAll({});
     if (USE_MOCK && works.length === 0) return mockContratos;
     return contratosFromWorks(works);
   },
 };
 
-export const alertasService = {
-  list: async (_params: { nivel?: string } = {}): Promise<Alerta[]> => {
-    const works = await worksService.listAll({});
-    if (USE_MOCK && works.length === 0) return mockAlertas;
-    return alertasFromWorks(works);
+/* ========================================================================== */
+/* 10. fornecedoresService — Ranking e detalhe de fornecedores                */
+/* ========================================================================== */
+
+export interface FornecedoresRankingFilters {
+  municipio?: string;
+  bairro?: string;
+  risco?: string;
+  limit?: number;
+}
+
+export const fornecedoresService = {
+  /**
+   * Ranking de fornecedores ordenado por score médio (pior primeiro).
+   * Endpoint novo: GET /suppliers/ranking
+   */
+  ranking: (filters: FornecedoresRankingFilters = {}): Promise<SupplierRankingItem[]> =>
+    callOrMock<SupplierRankingItem[]>(
+      async () => {
+        const params: Record<string, unknown> = {};
+        if (filters.municipio) params.municipio = filters.municipio;
+        if (filters.bairro) params.bairro = filters.bairro;
+        if (filters.risco) params.risco = filters.risco;
+        if (filters.limit) params.limit = filters.limit;
+        return (await api.get<SupplierRankingItem[]>("/suppliers/ranking", { params })).data;
+      },
+      [],
+    ),
+
+  /**
+   * Detalhe completo de um fornecedor.
+   * Endpoint novo: GET /suppliers/{cnpj_or_name}
+   */
+  get: (cnpjOrName: string): Promise<SupplierDetailRead | null> =>
+    callOrMock<SupplierDetailRead | null>(
+      async () =>
+        (await api.get<SupplierDetailRead>(`/suppliers/${encodeURIComponent(cnpjOrName)}`)).data,
+      null,
+    ),
+};
+
+/* ========================================================================== */
+/* 11. etlService                                                             */
+/* ========================================================================== */
+
+export const etlService = {
+  syncStatus: () =>
+    callOrMock<SyncStatus>(async () => (await api.get<SyncStatus>("/etl/sync-status")).data, {}),
+  syncPublicData: async (params: { municipio?: string; ano?: number } = {}) =>
+    (
+      await api.post("/etl/sync-public-data", null, {
+        params: {
+          municipio: params.municipio ?? "Macae",
+          ...(params.ano ? { ano: params.ano } : {}),
+        },
+      })
+    ).data,
+  runTcerj: async (params: { municipio?: string; ano?: number } = {}) =>
+    (
+      await api.post("/etl/tcerj/run", null, {
+        params: {
+          municipio: params.municipio ?? "Macae",
+          ...(params.ano ? { ano: params.ano } : {}),
+        },
+      })
+    ).data,
+  runMacaePortal: async () => (await api.post("/etl/macae-portal/run")).data,
+  importCsv: async (params: { path: string; municipio?: string }) =>
+    (
+      await api.post("/etl/import-csv", null, {
+        params: { path: params.path, municipio: params.municipio ?? "Macae" },
+      })
+    ).data,
+  sinapiBenchmarks: async () => (await api.get("/etl/sinapi/benchmarks")).data,
+  ipcaIndex: async () => (await api.get("/etl/inflation/ipca")).data,
+  testInflation: async (params: { value?: number; source_date?: string }) =>
+    (await api.get("/etl/inflation/test-correction", { params })).data,
+};
+
+/* ========================================================================== */
+/* 12. geoService                                                             */
+/* ========================================================================== */
+
+export const geoService = {
+  layer: (layerType: "municipality" | "census_tract" | "road") =>
+    callOrMock<GeoFeatureCollection>(
+      async () => (await api.get<GeoFeatureCollection>(`/geo-layers/${layerType}`)).data,
+      { type: "FeatureCollection", features: [] },
+    ),
+};
+
+/* ========================================================================== */
+/* 13. mlService                                                              */
+/* ========================================================================== */
+
+export const mlService = {
+  predict: async (payload: Record<string, unknown>) =>
+    (await api.post("/ml/predict", payload)).data,
+  trainBaseline: async () => (await api.post("/ml/train-baseline")).data,
+  retrainReal: async () => (await api.post("/ml/retrain-real")).data,
+};
+
+/* ========================================================================== */
+/* 14. exportsService                                                         */
+/* ========================================================================== */
+
+/** Cria um object URL temporário e dispara o download via link programático. */
+function triggerDownload(blob: Blob, filename: string, _mime: string): void {
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
+}
+
+export const exportsService = {
+  worksCsvUrl: () => `${ROOT}/api/v1/exports/works.csv`,
+  worksXlsxUrl: () => `${ROOT}/api/v1/exports/works.xlsx`,
+
+  downloadCsv: async (filename = "argus-obras.csv"): Promise<void> => {
+    const url = exportsService.worksCsvUrl();
+    const res = await fetch(url, { signal: AbortSignal.timeout(COLD_START_TIMEOUT_MS) });
+    if (!res.ok) {
+      throw new Error(`Falha ao exportar CSV (HTTP ${res.status}). Verifique se o backend está disponível.`);
+    }
+    const blob = await res.blob();
+    triggerDownload(blob, filename, "text/csv");
+  },
+
+  downloadXlsx: async (filename = "argus-obras.xlsx"): Promise<void> => {
+    const url = exportsService.worksXlsxUrl();
+    const res = await fetch(url, { signal: AbortSignal.timeout(COLD_START_TIMEOUT_MS) });
+    if (!res.ok) {
+      throw new Error(`Falha ao exportar XLSX (HTTP ${res.status}). Verifique se o backend está disponível.`);
+    }
+    const blob = await res.blob();
+    triggerDownload(blob, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  },
+
+  exportClientCsv: (rows: Record<string, unknown>[], filename = "argus-relatorio.csv"): void => {
+    if (!rows.length) throw new Error("Nenhum dado disponível para exportação.");
+    const headers = Object.keys(rows[0]);
+    const csv = [
+      headers.join(";"),
+      ...rows.map((r) =>
+        headers
+          .map((h) => {
+            const v = r[h];
+            if (v == null) return "";
+            const s = String(v);
+            return s.includes(";") || s.includes('"') || s.includes("\n")
+              ? `"${s.replace(/"/g, '""')}"` 
+              : s;
+          })
+          .join(";"),
+      ),
+    ].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    triggerDownload(blob, filename, "text/csv");
   },
 };
 
-export const dashboardService = {
-  getSummary: async (): Promise<DashboardSummary> => {
-    try {
-      const [s, works] = await Promise.all([analyticsService.summary(), worksService.listAll({})]);
-      return summaryFromAnalytics(s, works);
-    } catch {
-      return mockSummary;
-    }
-  },
-};
+/* ========================================================================== */
+/* Re-exports de tipos para compatibilidade                                   */
+/* ========================================================================== */
 
 export type { AlertRead };

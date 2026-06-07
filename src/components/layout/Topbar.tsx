@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { SidebarNav } from "@/components/layout/Sidebar";
+import { ApiStatusBadge } from "@/components/argus/ApiStatusBadge";
 
 const titleMap: Record<string, string> = {
   "/dashboard": "Painel Executivo",
@@ -13,10 +14,11 @@ const titleMap: Record<string, string> = {
   "/mapa": "Mapa Territorial",
   "/macae": "Análise Macaé-RJ",
   "/alertas": "Alertas e Riscos",
-  "/metodologia": "Metodologia ARGUS",
+  "/metodologia": "Metodologia",
   "/etl": "Atualização das Bases",
   "/municipios": "Municípios",
   "/contratos": "Contratos",
+  "/fornecedores": "Fornecedores",
   "/relatorios": "Relatórios",
   "/configuracoes": "Configurações",
   "/cidadao": "Portal do Cidadão",
@@ -54,6 +56,7 @@ export function Topbar() {
           className="h-9 border-white/10 bg-white/5 pl-9 text-sm text-white/50 placeholder:text-white/30 cursor-not-allowed"
         />
       </div>
+      <ApiStatusBadge />
       <Button
         variant="ghost"
         size="sm"

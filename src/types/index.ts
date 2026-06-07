@@ -1,3 +1,11 @@
+/* ========================================================================== */
+/* Tipos da Plataforma ARGUS                                                  */
+/* ========================================================================== */
+
+/* -------------------------------------------------------------------------- */
+/* Tipos de domínio do frontend (legacy / adaptação)                          */
+/* -------------------------------------------------------------------------- */
+
 export type ObraStatus = "Planejada" | "Em andamento" | "Concluída" | "Atrasada" | "Paralisada";
 export type AlertaNivel = "Baixo" | "Médio" | "Alto" | "Crítico";
 
@@ -90,7 +98,7 @@ export interface DashboardSummary {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Tipos espelhando o backend FastAPI (`/openapi.json`).                      */
+/* Tipos espelhando o backend FastAPI — Obras / Analytics / Legacy            */
 /* -------------------------------------------------------------------------- */
 
 export interface AlertRead {
@@ -251,3 +259,302 @@ export interface PaginatedWorks {
   per_page: number;
   total_pages: number;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Tipos do Dashboard Executivo (endpoint /dashboard/*)                       */
+/* -------------------------------------------------------------------------- */
+
+/** Resumo executivo com todos os KPIs do painel. */
+export interface DashboardExecutiveSummary {
+  municipio: string;
+  ultima_atualizacao: string;
+  obras_monitoradas: number;
+  valor_total_contratado: number;
+  valor_total_pago: number;
+  valor_potencial_em_risco: number;
+  obras_criticas: number;
+  obras_alto_risco: number;
+  obras_em_atencao: number;
+  obras_eficientes: number;
+  obras_atrasadas: number;
+  obras_sem_geolocalizacao: number;
+  contratos_com_aditivos_altos: number;
+  alertas_criticos: number;
+  alertas_totais: number;
+  fornecedores_monitorados: number;
+  bairros_monitorados: number;
+  score_medio: number;
+  data_quality_score: number;
+}
+
+/** Item da fila priorizada de obras que o gestor deve avaliar primeiro. */
+export interface PriorityQueueItem {
+  prioridade: number;
+  obra_id: number;
+  obra: string;
+  bairro: string | null;
+  secretaria: string | null;
+  fornecedor: string | null;
+  score_argus: number | null;
+  classificacao_risco: string;
+  valor_contratado: number;
+  valor_em_risco_estimado: number;
+  dias_atraso: number;
+  alertas_ativos: number;
+  motivo_principal: string;
+  acao_sugerida: string;
+}
+
+/** Faixa de risco com contagem de obras (para gráficos). */
+export interface RiskDistributionItem {
+  label: string;
+  min: number | null;
+  max: number | null;
+  total: number;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tipos de Análise Territorial (endpoint /territory/*)                       */
+/* -------------------------------------------------------------------------- */
+
+/** Visão geral da análise microterritorial de Macaé-RJ. */
+export interface TerritoryOverview {
+  municipio: string;
+  bairros_monitorados: number;
+  obras_monitoradas: number;
+  valor_total_contratado: number;
+  score_medio: number;
+  bairros_criticos: number;
+  obras_sem_bairro: number;
+  obras_sem_geolocalizacao: number;
+  bairro_mais_critico: string;
+  bairro_maior_valor: string;
+  bairro_mais_atrasos: string;
+  recomendacoes: string[];
+}
+
+/** Bairro com indicadores de risco na lista de bairros. */
+export interface NeighborhoodListItem {
+  bairro: string;
+  obras: number;
+  valor_total: number;
+  valor_pago: number;
+  score_medio: number;
+  obras_criticas: number;
+  obras_alto_risco: number;
+  obras_atrasadas: number;
+  alertas_totais: number;
+  alertas_criticos: number;
+  fornecedores_distintos: number;
+  fornecedor_mais_recorrente: string;
+  obras_sem_geolocalizacao: number;
+  classificacao: string;
+  recomendacao: string;
+}
+
+/** Bairro com indicadores de risco (endpoint dashboard). */
+export interface NeighborhoodRiskItem {
+  bairro: string;
+  obras: number;
+  score_medio: number;
+  obras_criticas: number;
+  obras_atrasadas: number;
+  valor_total: number;
+  alertas: number;
+  classificacao: string;
+  recomendacao: string;
+}
+
+/** Resumo de obra no detalhe do bairro. */
+export interface ObraResumo {
+  id: number;
+  descricao: string;
+  fornecedor: string | null;
+  score: number | null;
+  classificacao: string;
+  valor_contratado: number;
+  dias_atraso: number;
+  alertas: number;
+}
+
+/** Resumo de fornecedor no detalhe do bairro. */
+export interface FornecedorResumo {
+  nome: string;
+  cnpj: string | null;
+  obras: number;
+  valor_total: number;
+  score_medio: number;
+}
+
+/** Resumo de alerta no detalhe do bairro. */
+export interface AlertaResumo {
+  obra_id: number;
+  code: string;
+  severity: string;
+  message: string;
+}
+
+/** Resumo numérico do bairro. */
+export interface BairroResumo {
+  obras: number;
+  valor_total: number;
+  valor_pago: number;
+  score_medio: number;
+  obras_criticas: number;
+  obras_alto_risco: number;
+  obras_atrasadas: number;
+  alertas_totais: number;
+  alertas_criticos: number;
+  fornecedores_distintos: number;
+  classificacao: string;
+}
+
+/** Detalhe completo de um bairro. */
+export interface NeighborhoodDetail {
+  bairro: string;
+  resumo: BairroResumo;
+  obras_criticas: ObraResumo[];
+  obras_atrasadas: ObraResumo[];
+  principais_fornecedores: FornecedorResumo[];
+  alertas: AlertaResumo[];
+  analise_textual: string;
+  acoes_recomendadas: string[];
+}
+
+/** Propriedades de cada feature no GeoJSON do heatmap. */
+export interface HeatmapFeatureProperties {
+  obra_id: number;
+  nome: string;
+  bairro: string;
+  score: number | null;
+  classificacao: string;
+  valor_contratado: number;
+  alertas: number;
+  dias_atraso: number;
+  fornecedor: string | null;
+}
+
+/** Resposta GeoJSON FeatureCollection para o heatmap territorial. */
+export interface HeatmapResponse {
+  type: "FeatureCollection";
+  features: Array<{
+    type: "Feature";
+    geometry: { type: string; coordinates: number[] };
+    properties: HeatmapFeatureProperties;
+  }>;
+}
+
+/** Obra com problemas de qualidade de dados. */
+export interface ObraDataQualityIssue {
+  id: number;
+  descricao: string;
+  bairro: string;
+  problemas: string[];
+}
+
+/** Relatório de qualidade dos dados territoriais. */
+export interface DataQualityReport {
+  total_obras: number;
+  obras_sem_bairro: number;
+  obras_sem_geolocalizacao: number;
+  obras_sem_valor: number;
+  obras_sem_fornecedor: number;
+  obras_sem_prazo: number;
+  data_quality_score: number;
+  obras_para_saneamento: ObraDataQualityIssue[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tipos de Fornecedores (endpoint /suppliers/*)                              */
+/* -------------------------------------------------------------------------- */
+
+/** Item do ranking de fornecedores. */
+export interface SupplierRankingItem {
+  fornecedor: string;
+  cnpj: string | null;
+  contratos: number;
+  obras: number;
+  valor_total: number;
+  valor_pago: number;
+  score_medio: number | null;
+  obras_criticas: number;
+  obras_atrasadas: number;
+  alertas_totais: number;
+  alertas_criticos: number;
+  aditivo_medio_percentual: number;
+  bairros_atuacao: string[];
+  classificacao: string;
+  recomendacao: string;
+}
+
+/** Detalhe completo de um fornecedor. */
+export interface SupplierDetailRead extends SupplierRankingItem {
+  obras_lista: Record<string, unknown>[];
+  contratos_lista: Record<string, unknown>[];
+  alertas_lista: Record<string, unknown>[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tipos de Contratos (endpoint /contracts/*)                                 */
+/* -------------------------------------------------------------------------- */
+
+/** Contrato exposto pela API. */
+export interface ContractItem {
+  id: string;
+  work_id: number;
+  numero_contrato: string | null;
+  objeto: string | null;
+  obra_nome: string | null;
+  municipio: string | null;
+  bairro: string | null;
+  fornecedor: string | null;
+  cnpj_fornecedor: string | null;
+  secretaria: string | null;
+  valor_original: number | null;
+  valor_atual: number | null;
+  valor_pago: number | null;
+  percentual_aditivo: number | null;
+  data_inicio: string | null;
+  data_fim: string | null;
+  dias_para_vencimento: number | null;
+  status: string | null;
+  score_argus: number | null;
+  classificacao_risco: string | null;
+  alertas: number;
+  acao_sugerida: string | null;
+}
+
+/** Detalhe de um contrato individual. */
+export interface ContractDetailRead extends ContractItem {
+  created_at: string | null;
+  updated_at: string | null;
+  alertas_detalhes: Record<string, unknown>[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tipos de Alertas com Workflow (endpoint /alerts/*)                         */
+/* -------------------------------------------------------------------------- */
+
+/** Alerta com workflow exposto pela API de alertas. */
+export interface AlertWorkflowItem {
+  id: number;
+  work_id: number;
+  tipo: string;
+  code: string;
+  severity: string;
+  nivel: string;
+  status: string;
+  obra_nome: string | null;
+  municipio: string | null;
+  bairro: string | null;
+  fornecedor: string | null;
+  descricao: string | null;
+  motivo: string | null;
+  acao_sugerida: string | null;
+  data_deteccao: string | null;
+  score_argus: number | null;
+  valor_contratado: number | null;
+}
+
+/** Status permitidos para atualização de alertas. */
+export type AlertStatusValue = "Novo" | "Em análise" | "Encaminhado" | "Resolvido" | "Descartado";

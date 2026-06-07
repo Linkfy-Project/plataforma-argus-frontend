@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, HardHat, Building2, FileText, AlertTriangle, BarChart3,
-  Settings, Shield, Map, MapPinned, BookOpen, Database, Users,
+  Settings, Shield, Map, MapPinned, BookOpen, Database, Users, Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -11,10 +11,11 @@ export const NAV_ITEMS = [
   { to: "/mapa", label: "Mapa territorial", icon: Map },
   { to: "/macae", label: "Análise Macaé-RJ", icon: MapPinned },
   { to: "/alertas", label: "Alertas", icon: AlertTriangle },
-  { to: "/metodologia", label: "Metodologia ARGUS", icon: BookOpen },
+  { to: "/contratos", label: "Contratos", icon: FileText },
+  { to: "/fornecedores", label: "Fornecedores", icon: Truck },
+  { to: "/metodologia", label: "Metodologia", icon: BookOpen },
   { to: "/etl", label: "Atualização das Bases", icon: Database },
   { to: "/municipios", label: "Municípios", icon: Building2 },
-  { to: "/contratos", label: "Contratos", icon: FileText },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { to: "/cidadao", label: "Portal do Cidadão", icon: Users },
   { to: "/configuracoes", label: "Configurações", icon: Settings },

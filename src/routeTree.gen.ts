@@ -24,6 +24,7 @@ import { Route as AppMunicipiosRouteImport } from './routes/_app.municipios'
 import { Route as AppMetodologiaRouteImport } from './routes/_app.metodologia'
 import { Route as AppMapaRouteImport } from './routes/_app.mapa'
 import { Route as AppMacaeRouteImport } from './routes/_app.macae'
+import { Route as AppFornecedoresRouteImport } from './routes/_app.fornecedores'
 import { Route as AppEtlRouteImport } from './routes/_app.etl'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppContratosRouteImport } from './routes/_app.contratos'
@@ -107,6 +108,11 @@ const AppMacaeRoute = AppMacaeRouteImport.update({
   path: '/macae',
   getParentRoute: () => AppRoute,
 } as any)
+const AppFornecedoresRoute = AppFornecedoresRouteImport.update({
+  id: '/fornecedores',
+  path: '/fornecedores',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppEtlRoute = AppEtlRouteImport.update({
   id: '/etl',
   path: '/etl',
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/contratos': typeof AppContratosRoute
   '/dashboard': typeof AppDashboardRoute
   '/etl': typeof AppEtlRoute
+  '/fornecedores': typeof AppFornecedoresRoute
   '/macae': typeof AppMacaeRoute
   '/mapa': typeof AppMapaRoute
   '/metodologia': typeof AppMetodologiaRoute
@@ -180,6 +187,7 @@ export interface FileRoutesByTo {
   '/contratos': typeof AppContratosRoute
   '/dashboard': typeof AppDashboardRoute
   '/etl': typeof AppEtlRoute
+  '/fornecedores': typeof AppFornecedoresRoute
   '/macae': typeof AppMacaeRoute
   '/mapa': typeof AppMapaRoute
   '/metodologia': typeof AppMetodologiaRoute
@@ -206,6 +214,7 @@ export interface FileRoutesById {
   '/_app/contratos': typeof AppContratosRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/etl': typeof AppEtlRoute
+  '/_app/fornecedores': typeof AppFornecedoresRoute
   '/_app/macae': typeof AppMacaeRoute
   '/_app/mapa': typeof AppMapaRoute
   '/_app/metodologia': typeof AppMetodologiaRoute
@@ -232,6 +241,7 @@ export interface FileRouteTypes {
     | '/contratos'
     | '/dashboard'
     | '/etl'
+    | '/fornecedores'
     | '/macae'
     | '/mapa'
     | '/metodologia'
@@ -255,6 +265,7 @@ export interface FileRouteTypes {
     | '/contratos'
     | '/dashboard'
     | '/etl'
+    | '/fornecedores'
     | '/macae'
     | '/mapa'
     | '/metodologia'
@@ -280,6 +291,7 @@ export interface FileRouteTypes {
     | '/_app/contratos'
     | '/_app/dashboard'
     | '/_app/etl'
+    | '/_app/fornecedores'
     | '/_app/macae'
     | '/_app/mapa'
     | '/_app/metodologia'
@@ -411,6 +423,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMacaeRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/fornecedores': {
+      id: '/_app/fornecedores'
+      path: '/fornecedores'
+      fullPath: '/fornecedores'
+      preLoaderRoute: typeof AppFornecedoresRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/etl': {
       id: '/_app/etl'
       path: '/etl'
@@ -488,6 +507,7 @@ interface AppRouteChildren {
   AppContratosRoute: typeof AppContratosRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppEtlRoute: typeof AppEtlRoute
+  AppFornecedoresRoute: typeof AppFornecedoresRoute
   AppMacaeRoute: typeof AppMacaeRoute
   AppMapaRoute: typeof AppMapaRoute
   AppMetodologiaRoute: typeof AppMetodologiaRoute
@@ -502,6 +522,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppContratosRoute: AppContratosRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppEtlRoute: AppEtlRoute,
+  AppFornecedoresRoute: AppFornecedoresRoute,
   AppMacaeRoute: AppMacaeRoute,
   AppMapaRoute: AppMapaRoute,
   AppMetodologiaRoute: AppMetodologiaRoute,

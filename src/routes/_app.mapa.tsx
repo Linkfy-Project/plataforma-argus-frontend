@@ -84,9 +84,9 @@ function MapaPage() {
   );
 
   const riskSummary = {
-    Baixo: georeferenciadas.filter((w) => getRiskLevel(w.efficiency_score) === "Baixo").length,
+    Eficiente: georeferenciadas.filter((w) => getRiskLevel(w.efficiency_score) === "Eficiente").length,
     Atenção: georeferenciadas.filter((w) => getRiskLevel(w.efficiency_score) === "Atenção").length,
-    Alto: georeferenciadas.filter((w) => getRiskLevel(w.efficiency_score) === "Alto").length,
+    "Alto risco": georeferenciadas.filter((w) => getRiskLevel(w.efficiency_score) === "Alto risco").length,
     Crítico: georeferenciadas.filter((w) => getRiskLevel(w.efficiency_score) === "Crítico").length,
   };
 
@@ -131,13 +131,13 @@ function MapaPage() {
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <h3 className="mb-3 text-sm font-semibold text-foreground">Resumo por risco no mapa</h3>
           <div className="space-y-3">
-            {(["Baixo", "Atenção", "Alto", "Crítico"] as const).map((level) => {
+            {(["Eficiente", "Atenção", "Alto risco", "Crítico"] as const).map((level) => {
               const count = riskSummary[level];
               const pct = georeferenciadas.length > 0 ? Math.round((count / georeferenciadas.length) * 100) : 0;
-              const colors = {
-                Baixo: "bg-[color:var(--success)]",
+              const colors: Record<string, string> = {
+                Eficiente: "bg-[color:var(--success)]",
                 Atenção: "bg-[color:var(--warning)]",
-                Alto: "bg-orange-500",
+                "Alto risco": "bg-orange-500",
                 Crítico: "bg-destructive",
               };
               return (
