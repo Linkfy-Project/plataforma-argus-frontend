@@ -1,11 +1,12 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { HardHat, AlertTriangle, Wallet, Search, MapPin, Loader2 } from "lucide-react";
-import { worksService, dashboardService } from "@/lib/api";
+import { HardHat, AlertTriangle, Wallet, Search, MapPin } from "lucide-react";
+import { worksService, dashboardService, geoService } from "@/lib/api";
 import { CidadaoMap } from "@/components/argus/CidadaoMap";
+import type { GeoLayerData } from "@/components/argus/ArgusMap";
 import { StatCard } from "@/components/argus/StatCard";
-import { LoadingState, ErrorState, EmptyState } from "@/components/argus/EmptyState";
+import { LoadingState, ErrorState } from "@/components/argus/EmptyState";
 import { Input } from "@/components/ui/input";
 import { fmtBRL, fmtNumber } from "@/lib/format";
 import type { WorkRead } from "@/types";
@@ -14,6 +15,22 @@ export const Route = createFileRoute("/cidadao/")({
   head: () => ({ meta: [{ title: "O Mapa da Minha Cidade — ARGUS" }] }),
   component: CidadaoIndex,
 });
+
+/* ─── Definição das camadas territoriais ──────────────────────────── */
+
+const LAYER_DEFS: {
+  key: string;
+  label: string;
+  layerType: "municipality" | "census_tract" | "road";
+  color: string;
+  fillOpacity: number;
+  weight: number;
+  defaultActive?: boolean;
+}[] = [
+  { key: "municipality", label: "Município", layerType: "municipality", color: "#1e3a8a", fillOpacity: 0.08, weight: 3 },
+  { key: "census_tract", label: "Setores censitários", layerType: "census_tract", color: "#6366f1", fillOpacity: 0.1, weight: 1.5 },
+  { key: "road", label: "Malha viária", layerType: "road", color: "#f97316", fillOpacity: 0, weight: 2, defaultActive: false },
+];
 
 function CidadaoIndex() {
   const [search, setSearch] = useState("");
@@ -29,6 +46,52 @@ function CidadaoIndex() {
     queryFn: () => dashboardService.getSummary(),
     staleTime: 5 * 60_000,
   });
+
+  // ─── Fetch das camadas geoespaciais (igual ao gestor) ───
+  const municipalityLayer = useQuery({
+    queryKey: ["cidadao-geo-layers", "municipality"],
+    queryFn: () => geoService.layer("municipality"),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const censusTractLayer = useQuery({
+    queryKey: ["cidadao-geo-layers", "census_tract"],
+    queryFn: () => geoService.layer("census_tract"),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const roadLayer = useQuery({
+    queryKey: ["cidadao-geo-layers", "road"],
+    queryFn: () => geoService.layer("road"),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const layerQueries = useMemo(
+    () => ({
+      municipality: municipalityLayer.data,
+      census_tract: censusTractLayer.data,
+      road: roadLayer.data,
+    }),
+    [municipalityLayer.data, censusTractLayer.data, roadLayer.data],
+  );
+
+  const geoLayers = useMemo<GeoLayerData[]>(() => {
+    return LAYER_DEFS.filter((def) => {
+      const data = layerQueries[def.layerType];
+      return data && data.features && data.features.length > 0;
+    }).map((def) => ({
+      key: def.key,
+      label: def.label,
+      geojson: layerQueries[def.layerType]! as unknown as GeoJSON.FeatureCollection,
+      color: def.color,
+      fillOpacity: def.fillOpacity,
+      weight: def.weight,
+      defaultActive: def.defaultActive,
+    }));
+  }, [layerQueries]);
 
   const isLoading = worksQuery.isLoading || summaryQuery.isLoading;
   const isError = worksQuery.isError || summaryQuery.isError;
@@ -93,7 +156,7 @@ function CidadaoIndex() {
           O Mapa da Minha Cidade
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Veja no mapa as obras públicas da sua cidade. Clique nos marcadores para saber mais.
+          Veja no mapa as obras públicas da sua cidade com delimitações territoriais. Clique nos marcadores para saber mais.
         </p>
       </div>
 
@@ -108,10 +171,11 @@ function CidadaoIndex() {
         />
       </div>
 
-      {/* Mapa */}
+      {/* Mapa com camadas territoriais */}
       <section className="overflow-hidden rounded-xl border border-border shadow-sm">
         <CidadaoMap
           works={allWorks}
+          layers={geoLayers}
           height="480px"
           filteredIds={filteredIds}
         />

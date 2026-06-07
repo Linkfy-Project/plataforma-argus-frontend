@@ -119,13 +119,17 @@ export function ArgusMap({ works, layers = [], className, height = "500px" }: Ar
       zoom: 12,
       zoomControl: true,
       scrollWheelZoom: true,
-      preferCanvas: true, // Canvas renderer for performance
     });
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 19,
     }).addTo(map);
+
+    // Create a custom pane for markers with high z-index (above geo layers)
+    map.createPane("markersPane");
+    const markersPane = map.getPane("markersPane")!;
+    markersPane.style.zIndex = "650";
 
     mapInstanceRef.current = map;
 
@@ -178,6 +182,7 @@ export function ArgusMap({ works, layers = [], className, height = "500px" }: Ar
             fillColor: "#f97316",
             fillOpacity: 0.15,
             dashArray: "6 4",
+            pane: "markersPane",
           })
             .bindTooltip(
               `Sobreposição territorial: ${Math.round(w.territorial_overlap_ratio * 100)}% — Buffer 500m`,
@@ -193,6 +198,7 @@ export function ArgusMap({ works, layers = [], className, height = "500px" }: Ar
           fillOpacity: 0.85,
           color: "#ffffff",
           weight: 1.5,
+          pane: "markersPane",
         })
           .bindPopup(buildPopupContent(w), { maxWidth: 300 })
           .addTo(map);

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { WorkRead } from "@/types";
+import type { GeoLayerData } from "@/components/argus/ArgusMap";
 
 // Fix default marker icons in Leaflet + webpack/vite
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -40,6 +41,7 @@ const SEMAFORO_LABELS: Record<Semaforo, { label: string; desc: string }> = {
 
 interface CidadaoMapProps {
   works: WorkRead[];
+  layers?: GeoLayerData[];
   className?: string;
   height?: string;
   /** Se informado, centraliza o mapa nas obras filtradas pela busca */
@@ -62,6 +64,10 @@ function buildPopupContent(w: WorkRead): string {
   const semaforo = getSemaforo(w.efficiency_score);
   const { label, desc } = SEMAFORO_LABELS[semaforo];
   const color = SEMAFORO_COLORS[semaforo];
+  const overlap =
+    w.territorial_overlap_ratio != null
+      ? `${Math.round(w.territorial_overlap_ratio * 100)}%`
+      : null;
 
   return `
     <div style="min-width:220px;max-width:280px;font-family:system-ui,sans-serif;">
@@ -80,6 +86,14 @@ function buildPopupContent(w: WorkRead): string {
       <p style="margin:0 0 8px;font-size:10px;color:#94a3b8;">
         ${desc}
       </p>
+      ${
+        overlap
+          ? `<p style="margin:0 0 4px;font-size:11px;color:#475569;">
+              <strong>Sobreposição territorial:</strong>
+              <span style="color:${w.territorial_overlap_ratio! > 0.5 ? "#ea580c" : "#64748b"};font-weight:600;">${overlap}</span>
+            </p>`
+          : ""
+      }
       <a href="/cidadao/obras/${w.id}" style="display:block;font-size:12px;color:#2563eb;text-decoration:none;font-weight:500;">
         Ver detalhes →
       </a>
@@ -91,6 +105,7 @@ function buildPopupContent(w: WorkRead): string {
 
 export function CidadaoMap({
   works,
+  layers = [],
   className,
   height = "500px",
   filteredIds,
@@ -99,7 +114,13 @@ export function CidadaoMap({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.CircleMarker[]>([]);
+  const layerGroupsRef = useRef<Record<string, L.GeoJSON>>({});
   const initRef = useRef(false);
+
+  // Track which geo layers are visible
+  const [activeKeys, setActiveKeys] = useState<Set<string>>(
+    () => new Set(layers.filter((l) => l.defaultActive !== false).map((l) => l.key)),
+  );
 
   // Obras com coordenadas válidas
   const geoWorks = useMemo(
@@ -114,7 +135,7 @@ export function CidadaoMap({
     [works],
   );
 
-  // Inicializa o mapa uma única vez
+  // Inicializa o mapa + camadas geo uma única vez
   useEffect(() => {
     if (!mapRef.current || initRef.current) return;
     initRef.current = true;
@@ -124,7 +145,6 @@ export function CidadaoMap({
       zoom: 12,
       zoomControl: true,
       scrollWheelZoom: true,
-      preferCanvas: true,
     });
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -133,14 +153,90 @@ export function CidadaoMap({
       maxZoom: 19,
     }).addTo(map);
 
+    // Cria um pane customizado para marcadores com z-index alto (acima das camadas geo)
+    map.createPane("markersPane");
+    const markersPane = map.getPane("markersPane")!;
+    markersPane.style.zIndex = "650";
+
     mapInstanceRef.current = map;
+
+    // Adiciona camadas geo (apenas as defaultActive são adicionadas ao mapa)
+    for (const layerData of layers) {
+      const geoJsonLayer = L.geoJSON(layerData.geojson, {
+        style: () => ({
+          color: layerData.color,
+          weight: layerData.weight ?? 2,
+          opacity: 0.8,
+          fillColor: layerData.color,
+          fillOpacity: layerData.fillOpacity ?? 0.15,
+        }),
+        onEachFeature: (feature, layer) => {
+          const name = feature.properties?.name;
+          const code = feature.properties?.code;
+          if ((name || code) && name !== "nan") {
+            layer.bindTooltip(`${name || ""}${name && code ? " · " : ""}${code || ""}`, {
+              sticky: true,
+              className: "argus-layer-tooltip",
+            });
+          }
+        },
+      });
+      // Só adiciona ao mapa se defaultActive
+      if (layerData.defaultActive !== false) {
+        geoJsonLayer.addTo(map);
+      }
+      layerGroupsRef.current[layerData.key] = geoJsonLayer;
+    }
 
     return () => {
       map.remove();
       mapInstanceRef.current = null;
+      layerGroupsRef.current = {};
       initRef.current = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Atualiza camadas geo quando layers mudam
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !initRef.current) return;
+
+    // Remove camadas geo antigas
+    for (const lg of Object.values(layerGroupsRef.current)) {
+      map.removeLayer(lg);
+    }
+    layerGroupsRef.current = {};
+
+    // Adiciona novas camadas geo
+    for (const layerData of layers) {
+      const geoJsonLayer = L.geoJSON(layerData.geojson, {
+        style: () => ({
+          color: layerData.color,
+          weight: layerData.weight ?? 2,
+          opacity: 0.8,
+          fillColor: layerData.color,
+          fillOpacity: layerData.fillOpacity ?? 0.15,
+        }),
+        onEachFeature: (feature, layer) => {
+          const name = feature.properties?.name;
+          const code = feature.properties?.code;
+          if ((name || code) && name !== "nan") {
+            layer.bindTooltip(`${name || ""}${name && code ? " · " : ""}${code || ""}`, {
+              sticky: true,
+              className: "argus-layer-tooltip",
+            });
+          }
+        },
+      });
+      if (layerData.defaultActive !== false) {
+        geoJsonLayer.addTo(map);
+      }
+      layerGroupsRef.current[layerData.key] = geoJsonLayer;
+    }
+
+    setActiveKeys(new Set(layers.filter((l) => l.defaultActive !== false).map((l) => l.key)));
+  }, [layers]);
 
   // Atualiza marcadores quando works/filteredIds mudam
   useEffect(() => {
@@ -168,12 +264,34 @@ export function CidadaoMap({
       const value = w.contract_value ?? 0;
       const radius = value > 5_000_000 ? 8 : value > 1_000_000 ? 6 : 4;
 
+      // Buffer de sobreposição territorial (500m) para obras com alta sobreposição
+      if (
+        w.territorial_overlap_ratio != null &&
+        w.territorial_overlap_ratio > 0.5
+      ) {
+        L.circle([w.latitude!, w.longitude!], {
+          radius: 500,
+          color: "#f97316",
+          weight: 1.5,
+          fillColor: "#f97316",
+          fillOpacity: 0.15,
+          dashArray: "6 4",
+          pane: "markersPane",
+        })
+          .bindTooltip(
+            `Sobreposição territorial: ${Math.round(w.territorial_overlap_ratio * 100)}% — Buffer 500m`,
+            { sticky: true, className: "argus-layer-tooltip" },
+          )
+          .addTo(map);
+      }
+
       const circle = L.circleMarker([w.latitude!, w.longitude!], {
         radius,
         fillColor: colors.fill,
         fillOpacity: 0.85,
         color: "#ffffff",
         weight: 1.5,
+        pane: "markersPane",
       }).addTo(map);
 
       circle.bindPopup(buildPopupContent(w), { maxWidth: 300 });
@@ -195,6 +313,27 @@ export function CidadaoMap({
     }
   }, [geoWorks, filteredIds, onViewDetails]);
 
+  // Toggle a geo layer on/off
+  const toggleLayer = useCallback((key: string) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    setActiveKeys((prev) => {
+      const next = new Set(prev);
+      const lg = layerGroupsRef.current[key];
+      if (!lg) return prev;
+
+      if (next.has(key)) {
+        map.removeLayer(lg);
+        next.delete(key);
+      } else {
+        lg.addTo(map);
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
   return (
     <div className="relative">
       <div
@@ -203,7 +342,40 @@ export function CidadaoMap({
         style={{ height, width: "100%", borderRadius: "12px", zIndex: 0 }}
       />
 
-      {/* Legenda do semáforo */}
+      {/* Painel de camadas (igual ao gestor) */}
+      {layers.length > 0 && (
+        <div className="absolute right-3 top-3 z-[1000] flex flex-col gap-1.5 rounded-lg border border-border bg-card/95 p-2.5 shadow-md backdrop-blur-sm">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Camadas
+          </span>
+          {layers.map((l) => {
+            const isActive = activeKeys.has(l.key);
+            return (
+              <button
+                key={l.key}
+                type="button"
+                onClick={() => toggleLayer(l.key)}
+                className={`flex items-center gap-2 rounded-md px-2 py-1 text-xs transition-colors ${
+                  isActive
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-muted-foreground hover:bg-muted/60"
+                }`}
+              >
+                <span
+                  className="inline-block h-3 w-3 rounded-sm border"
+                  style={{
+                    backgroundColor: isActive ? l.color : "transparent",
+                    borderColor: l.color,
+                  }}
+                />
+                {l.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Legenda do semáforo (versão cidadã) */}
       <div className="absolute left-3 bottom-3 z-[1000] flex flex-wrap gap-2 rounded-lg border border-border bg-card/95 p-2.5 shadow-md backdrop-blur-sm">
         {(Object.entries(SEMAFORO_LABELS) as [Semaforo, typeof SEMAFORO_LABELS.green][]).map(
           ([key, val]) => {
