@@ -23,6 +23,21 @@ export const Route = createFileRoute("/_app/macae")({
 const MUNICIPIO = "Macae";
 const MUNICIPIO_LABEL = "Macaé-RJ";
 
+/**
+ * Normaliza o nome do município removendo acentos, convertendo para
+ * minúsculas e removendo sufixos como "-RJ". Isso permite comparar
+ * nomes que vêm do backend com variações (ex: "Macaé", "Macaé-RJ", "Macae").
+ */
+function normalizeMunicipio(raw: string | null | undefined): string {
+  if (!raw) return "";
+  return raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s*-\s*rj$/, "")
+    .trim();
+}
+
 function MacaePage() {
   const summary = useQuery({
     queryKey: ["analytics", "summary", MUNICIPIO],
@@ -45,8 +60,9 @@ function MacaePage() {
   const totalValor = ws.reduce((acc, w) => acc + (w.contract_value ?? 0), 0);
   const totalAlertas = ws.reduce((acc, w) => acc + (w.alerts?.length ?? 0), 0);
 
-  const bestMacae = (rankings.data?.best ?? []).filter((w) => w.municipio === MUNICIPIO);
-  const worstMacae = (rankings.data?.worst ?? []).filter((w) => w.municipio === MUNICIPIO);
+  // Filtra rankings usando normalização para aceitar variações de acento/sufixo
+  const bestMacae = (rankings.data?.best ?? []).filter((w) => normalizeMunicipio(w.municipio) === normalizeMunicipio(MUNICIPIO));
+  const worstMacae = (rankings.data?.worst ?? []).filter((w) => normalizeMunicipio(w.municipio) === normalizeMunicipio(MUNICIPIO));
 
   return (
     <div>

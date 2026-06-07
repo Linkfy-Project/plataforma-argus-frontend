@@ -38,7 +38,7 @@ export type GeoFeatureCollection = {
  *
  * Backend: FastAPI (Render). Endpoints reais conforme `/openapi.json`:
  *   GET  /health
- *   GET  /api/v1/works                ?municipio=&min_score=&max_score=&limit=&offset=
+ *   GET  /api/v1/works                ?municipio=&min_score=&max_score=&page=&per_page=
  *   GET  /api/v1/works/{work_id}
  *   POST /api/v1/works/{work_id}/recompute
  *   POST /api/v1/works/recompute-all

@@ -8,13 +8,18 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { SidebarNav } from "@/components/layout/Sidebar";
 
 const titleMap: Record<string, string> = {
-  "/dashboard": "Painel Geral",
+  "/dashboard": "Painel Executivo",
   "/obras": "Obras Públicas",
+  "/mapa": "Mapa Territorial",
+  "/macae": "Análise Macaé-RJ",
+  "/alertas": "Alertas e Riscos",
+  "/metodologia": "Metodologia ARGUS",
+  "/etl": "Atualização das Bases",
   "/municipios": "Municípios",
   "/contratos": "Contratos",
-  "/alertas": "Alertas e Riscos",
   "/relatorios": "Relatórios",
   "/configuracoes": "Configurações",
+  "/cidadao": "Portal do Cidadão",
 };
 
 export function Topbar() {
@@ -44,8 +49,9 @@ export function Topbar() {
       <div className="relative ml-auto hidden w-full max-w-md md:block">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
         <Input
-          placeholder="Buscar obras, municípios ou contratos..."
-          className="h-9 border-white/10 bg-white/10 pl-9 text-sm text-white placeholder:text-white/50 focus-visible:ring-[color:var(--sidebar-accent-hl)]"
+          placeholder="Busca disponível em breve..."
+          disabled
+          className="h-9 border-white/10 bg-white/5 pl-9 text-sm text-white/50 placeholder:text-white/30 cursor-not-allowed"
         />
       </div>
       <Button

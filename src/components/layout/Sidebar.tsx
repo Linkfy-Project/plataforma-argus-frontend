@@ -6,13 +6,13 @@ import {
 import { cn } from "@/lib/utils";
 
 export const NAV_ITEMS = [
-  { to: "/dashboard", label: "Painel", icon: LayoutDashboard },
+  { to: "/dashboard", label: "Painel Executivo", icon: LayoutDashboard },
   { to: "/obras", label: "Obras", icon: HardHat },
   { to: "/mapa", label: "Mapa territorial", icon: Map },
   { to: "/macae", label: "Análise Macaé-RJ", icon: MapPinned },
   { to: "/alertas", label: "Alertas", icon: AlertTriangle },
   { to: "/metodologia", label: "Metodologia ARGUS", icon: BookOpen },
-  { to: "/etl", label: "ETL / Dados", icon: Database },
+  { to: "/etl", label: "Atualização das Bases", icon: Database },
   { to: "/municipios", label: "Municípios", icon: Building2 },
   { to: "/contratos", label: "Contratos", icon: FileText },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
