@@ -1,14 +1,13 @@
 import { useState, useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { HardHat, AlertTriangle, Wallet, Search, MapPin } from "lucide-react";
+import { HardHat, AlertTriangle, Wallet } from "lucide-react";
 import { worksService, dashboardService, geoService } from "@/lib/api";
 import { CidadaoMap } from "@/components/argus/CidadaoMap";
 import type { FlyToTarget } from "@/components/argus/CidadaoMap";
 import type { GeoLayerData } from "@/components/argus/ArgusMap";
 import { StatCard } from "@/components/argus/StatCard";
 import { LoadingState, ErrorState } from "@/components/argus/EmptyState";
-import { Input } from "@/components/ui/input";
 import { GeocodingSearchBar } from "@/components/argus/GeocodingSearchBar";
 import type { GeocodingResult } from "@/components/argus/GeocodingSearchBar";
 import { fmtBRL, fmtNumber } from "@/lib/format";
@@ -58,7 +57,6 @@ const LAYER_DEFS: {
 ];
 
 function CidadaoIndex() {
-  const [search, setSearch] = useState("");
   /** Alvo de flyTo para busca geocodificada (Photon) */
   const [flyToTarget, setFlyToTarget] = useState<FlyToTarget | undefined>(undefined);
 
@@ -128,33 +126,6 @@ function CidadaoIndex() {
   const isLoading = worksQuery.isLoading || summaryQuery.isLoading;
   const isError = worksQuery.isError || summaryQuery.isError;
 
-  // Filtro de busca
-  const filteredWorks = useMemo(() => {
-    const all = worksQuery.data ?? [];
-    if (!search.trim()) return all;
-    const q = search.toLowerCase().trim();
-    return all.filter((w: WorkRead) => {
-      const searchable = [
-        w.object_description,
-        w.neighborhood,
-        w.address,
-        w.municipio,
-        w.contractor_name,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return searchable.includes(q);
-    });
-  }, [worksQuery.data, search]);
-
-  // IDs das obras filtradas (para centralizar o mapa)
-  const filteredIds = useMemo(() => {
-    if (!search.trim()) return undefined;
-    return new Set(filteredWorks.map((w: WorkRead) => w.id));
-  }, [filteredWorks, search]);
-
-  const d = summaryQuery.data;
   const allWorks = worksQuery.data ?? [];
 
   // Contagem de obras atrasadas
@@ -196,44 +167,10 @@ function CidadaoIndex() {
       {/* Barra de busca geocodificada (Photon API) */}
       <GeocodingSearchBar onSelect={handleGeocodingSelect} />
 
-      {/* Barra de busca por obra */}
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="🔍 Busque pelo nome da obra, bairro ou rua..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="h-14 w-full rounded-xl border-border bg-card pl-12 pr-4 text-base shadow-sm placeholder:text-muted-foreground/60"
-        />
-      </div>
-
       {/* Mapa com camadas territoriais */}
       <section className="overflow-hidden rounded-xl border border-border shadow-sm">
-        <CidadaoMap
-          works={allWorks}
-          layers={geoLayers}
-          height="480px"
-          filteredIds={filteredIds}
-          flyToTarget={flyToTarget}
-        />
+        <CidadaoMap works={allWorks} layers={geoLayers} height="480px" flyToTarget={flyToTarget} />
       </section>
-
-      {/* Resultado da busca */}
-      {search.trim() && (
-        <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-4 py-2.5 text-sm text-muted-foreground">
-          <MapPin className="h-4 w-4 shrink-0" />
-          {filteredWorks.length > 0 ? (
-            <span>
-              <strong className="text-foreground">{filteredWorks.length}</strong> obra(s)
-              encontrada(s) para "<strong>{search.trim()}</strong>"
-            </span>
-          ) : (
-            <span>
-              Nenhuma obra encontrada para "<strong>{search.trim()}</strong>"
-            </span>
-          )}
-        </div>
-      )}
 
       {/* Cards de resumo rápido */}
       <section>
