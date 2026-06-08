@@ -71,7 +71,6 @@ export function GeocodingSearchBar({
   const { suggestions, isLoading, error, setQuery, clearSuggestions } = usePhotonSearch({
     debounceMs: 300,
     limit: 5,
-    lang: "pt",
   });
 
   const [inputValue, setInputValue] = useState("");
@@ -177,8 +176,12 @@ export function GeocodingSearchBar({
           break;
         case "Enter":
           e.preventDefault();
+          // Se o usuário já destacou um item com as setas, seleciona ele.
+          // Senão, seleciona automaticamente o primeiro resultado da lista.
           if (activeIndex >= 0 && activeIndex < suggestions.length) {
             handleSelect(suggestions[activeIndex]);
+          } else if (suggestions.length > 0) {
+            handleSelect(suggestions[0]);
           }
           break;
         case "Escape":

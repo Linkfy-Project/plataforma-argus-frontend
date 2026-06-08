@@ -308,10 +308,12 @@ export function CidadaoMap({
     markersRef.current = markers;
 
     // Ajusta zoom para mostrar todos os marcadores visíveis
-    if (visible.length > 0) {
+    // MAS pula o fitBounds se o usuário fez uma busca geocodificada (flyToTarget),
+    // senão o fitBounds sobrescreve a posição pesquisada pelo usuário.
+    if (visible.length > 0 && !flyToTarget) {
       map.fitBounds(L.featureGroup(markers).getBounds().pad(0.1));
     }
-  }, [geoWorks, filteredIds, onViewDetails]);
+  }, [geoWorks, filteredIds, onViewDetails, flyToTarget]);
 
   // Executa flyTo quando flyToTarget muda (busca geocodificada)
   useEffect(() => {

@@ -73,7 +73,7 @@ const PHOTON_API_URL = "https://photon.komoot.io/api/";
  * ```
  */
 export function usePhotonSearch(options: UsePhotonSearchOptions = {}): UsePhotonSearchReturn {
-  const { debounceMs = 300, limit = 5, lang = "pt" } = options;
+  const { debounceMs = 300, limit = 5, lang } = options;
 
   const [suggestions, setSuggestions] = useState<PhotonFeature[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -114,11 +114,13 @@ export function usePhotonSearch(options: UsePhotonSearchOptions = {}): UsePhoton
 
       try {
         // Monta a URL com os parâmetros de busca
+        // Nota: 'lang' é omitido se undefined, pois a API Photon removeu
+        // suporte a alguns idiomas (pt, es) e retorna 400 para códigos inválidos.
         const params = new URLSearchParams({
           q: query.trim(),
-          lang,
           limit: String(limit),
         });
+        if (lang) params.set("lang", lang);
 
         const response = await fetch(`${PHOTON_API_URL}?${params.toString()}`, {
           signal: controller.signal,
