@@ -189,7 +189,28 @@ async function forward(request: Request, splat: string | undefined) {
       if (path === "/api/v1/analytics/trends") return json(trends(works));
     }
 
-    const upstream = await fetch(target, init);
+    // Função auxiliar para fetch com retry em caso de 502/503 (cold start)
+    const fetchWithRetry = async (
+      url: string,
+      fetchInit: RequestInit,
+      maxRetries = 3,
+    ): Promise<Response> => {
+      let lastResponse: Response | null = null;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const resp = await fetch(url, fetchInit);
+        // Só retry em 502/503 (cold start / hibernate-wake-error)
+        if (resp.status !== 502 && resp.status !== 503) return resp;
+        lastResponse = resp;
+        if (attempt < maxRetries) {
+          // Delay exponencial: 2s, 4s, 8s
+          const delay = Math.min(2000 * Math.pow(2, attempt), 10_000);
+          await new Promise((r) => setTimeout(r, delay));
+        }
+      }
+      return lastResponse!;
+    };
+
+    const upstream = await fetchWithRetry(target, init);
     const headers = new Headers();
     const passthrough = ["content-type", "content-disposition", "cache-control", "etag"];
     for (const k of passthrough) {
