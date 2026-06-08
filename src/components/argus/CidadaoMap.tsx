@@ -126,11 +126,7 @@ export function CidadaoMap({
   const geoWorks = useMemo(
     () =>
       works.filter(
-        (w) =>
-          w.latitude != null &&
-          w.longitude != null &&
-          w.latitude !== 0 &&
-          w.longitude !== 0,
+        (w) => w.latitude != null && w.longitude != null && w.latitude !== 0 && w.longitude !== 0,
       ),
     [works],
   );
@@ -148,8 +144,7 @@ export function CidadaoMap({
     });
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 19,
     }).addTo(map);
 
@@ -252,9 +247,7 @@ export function CidadaoMap({
     if (geoWorks.length === 0) return;
 
     const markers: L.CircleMarker[] = [];
-    const visible = filteredIds
-      ? geoWorks.filter((w) => filteredIds.has(w.id))
-      : geoWorks;
+    const visible = filteredIds ? geoWorks.filter((w) => filteredIds.has(w.id)) : geoWorks;
 
     for (const w of visible) {
       const semaforo = getSemaforo(w.efficiency_score);
@@ -265,10 +258,7 @@ export function CidadaoMap({
       const radius = value > 5_000_000 ? 8 : value > 1_000_000 ? 6 : 4;
 
       // Buffer de sobreposição territorial (500m) para obras com alta sobreposição
-      if (
-        w.territorial_overlap_ratio != null &&
-        w.territorial_overlap_ratio > 0.5
-      ) {
+      if (w.territorial_overlap_ratio != null && w.territorial_overlap_ratio > 0.5) {
         L.circle([w.latitude!, w.longitude!], {
           radius: 500,
           color: "#f97316",

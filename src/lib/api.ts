@@ -54,6 +54,11 @@ import type {
   ContractDetailRead,
   AlertWorkflowItem,
   AlertStatusValue,
+  ExecutiveReport,
+  CriticalWorkReportItem,
+  NeighborhoodReportItem,
+  SupplierReportItem,
+  DataQualityReportFull,
 } from "@/types";
 
 /* ========================================================================== */
@@ -121,7 +126,6 @@ api.interceptors.response.use(
   (r) => r,
   (error: AxiosError) => {
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.warn(
         "[Argus API]",
         error?.config?.method?.toUpperCase(),
@@ -322,7 +326,7 @@ function avg(nums: number[]): number {
  */
 const CANONICAL_MUNICIPIO: Record<string, string> = {
   macae: "Macaé-RJ",
-  "macaé": "Macaé-RJ",
+  macaé: "Macaé-RJ",
 };
 
 export function normalizeMunicipioName(raw: string): string {
@@ -349,7 +353,8 @@ export function mergeInterMunicipalData(list: InterMunicipalData[]): InterMunici
       existing.total_works = totalWorks;
       existing.total_value += item.total_value;
       existing.avg_score =
-        (existing.avg_score * existing.total_works + item.avg_score * item.total_works) / totalWorks;
+        (existing.avg_score * existing.total_works + item.avg_score * item.total_works) /
+        totalWorks;
       existing.avg_delay_risk =
         (existing.avg_delay_risk * existing.total_works + item.avg_delay_risk * item.total_works) /
         totalWorks;
@@ -449,7 +454,9 @@ async function fetchAllWorksPages(
 }
 
 function calculateSummary(works: WorkRead[]): AnalyticsSummary {
-  const scores = works.map((w) => w.efficiency_score).filter((score): score is number => score != null);
+  const scores = works
+    .map((w) => w.efficiency_score)
+    .filter((score): score is number => score != null);
   const today = new Date();
   return {
     total_works: works.length,
@@ -473,7 +480,10 @@ function calculateSummary(works: WorkRead[]): AnalyticsSummary {
 }
 
 function calculateTrends(works: WorkRead[]): TrendPoint[] {
-  const groups = new Map<string, { scoreSum: number; scoreCount: number; count: number; totalValue: number }>();
+  const groups = new Map<
+    string,
+    { scoreSum: number; scoreCount: number; count: number; totalValue: number }
+  >();
 
   for (const work of works) {
     const date = work.signed_at ?? work.created_at;
@@ -524,7 +534,9 @@ export const dashboardService = {
    */
   executiveSummary: (municipio = "Macae") =>
     callOrMock<DashboardExecutiveSummary>(
-      async () => (await api.get<DashboardExecutiveSummary>("/dashboard/summary", { params: { municipio } })).data,
+      async () =>
+        (await api.get<DashboardExecutiveSummary>("/dashboard/summary", { params: { municipio } }))
+          .data,
       {
         municipio: "Macaé-RJ",
         ultima_atualizacao: new Date().toISOString(),
@@ -555,7 +567,11 @@ export const dashboardService = {
   priorityQueue: (municipio = "Macae", limit = 10) =>
     callOrMock<PriorityQueueItem[]>(
       async () =>
-        (await api.get<PriorityQueueItem[]>("/dashboard/priority-queue", { params: { municipio, limit } })).data,
+        (
+          await api.get<PriorityQueueItem[]>("/dashboard/priority-queue", {
+            params: { municipio, limit },
+          })
+        ).data,
       [],
     ),
 
@@ -566,7 +582,11 @@ export const dashboardService = {
   riskDistribution: (municipio = "Macae") =>
     callOrMock<RiskDistributionItem[]>(
       async () =>
-        (await api.get<RiskDistributionItem[]>("/dashboard/risk-distribution", { params: { municipio } })).data,
+        (
+          await api.get<RiskDistributionItem[]>("/dashboard/risk-distribution", {
+            params: { municipio },
+          })
+        ).data,
       [],
     ),
 
@@ -639,24 +659,18 @@ export const analyticsService = {
       { type: "FeatureCollection", features: [] },
     ),
   trends: (params: { municipio?: string } = {}) =>
-    callOrMock<TrendPoint[]>(
-      async () => {
-        if (!params.municipio) return (await api.get<TrendPoint[]>("/analytics/trends")).data;
-        const works = (await fetchAllWorksPages()).filter((work) =>
-          matchesMunicipio(work, params.municipio),
-        );
-        return calculateTrends(works);
-      },
-      [],
-    ),
+    callOrMock<TrendPoint[]>(async () => {
+      if (!params.municipio) return (await api.get<TrendPoint[]>("/analytics/trends")).data;
+      const works = (await fetchAllWorksPages()).filter((work) =>
+        matchesMunicipio(work, params.municipio),
+      );
+      return calculateTrends(works);
+    }, []),
   interMunicipal: () =>
-    callOrMock<InterMunicipalData[]>(
-      async () => {
-        const raw = (await api.get<InterMunicipalData[]>("/analytics/inter-municipal")).data;
-        return mergeInterMunicipalData(raw);
-      },
-      [],
-    ),
+    callOrMock<InterMunicipalData[]>(async () => {
+      const raw = (await api.get<InterMunicipalData[]>("/analytics/inter-municipal")).data;
+      return mergeInterMunicipalData(raw);
+    }, []),
 };
 
 /* ========================================================================== */
@@ -824,7 +838,11 @@ export const territoryService = {
   macaeNeighborhoodDetail: (bairro: string) =>
     callOrMock<NeighborhoodDetail | null>(
       async () =>
-        (await api.get<NeighborhoodDetail>(`/territory/macae/neighborhoods/${encodeURIComponent(bairro)}`)).data,
+        (
+          await api.get<NeighborhoodDetail>(
+            `/territory/macae/neighborhoods/${encodeURIComponent(bairro)}`,
+          )
+        ).data,
       null,
     ),
 
@@ -1018,6 +1036,77 @@ export const contratosService = {
     );
   },
 
+  /**
+   * Lista contratos ricos — retorna ContractItem[] diretamente
+   * com todos os campos expandidos (percentual_aditivo, classificacao_risco, etc).
+   * Usado pela página de Contratos aprimorada.
+   */
+  listRich: async (filters: ContratosListFilters = {}): Promise<ContractItem[]> => {
+    return withFallback(
+      async () => {
+        const params: Record<string, unknown> = {};
+        if (filters.municipio) params.municipio = filters.municipio;
+        if (filters.fornecedor) params.fornecedor = filters.fornecedor;
+        if (filters.secretaria) params.secretaria = filters.secretaria;
+        if (filters.bairro) params.bairro = filters.bairro;
+        if (filters.status) params.status = filters.status;
+        if (filters.risco) params.risco = filters.risco;
+        if (filters.com_aditivo != null) params.com_aditivo = filters.com_aditivo;
+        if (filters.vencendo != null) params.vencendo = filters.vencendo;
+        if (filters.vencido != null) params.vencido = filters.vencido;
+        if (filters.search) params.search = filters.search;
+        return (await api.get<ContractItem[]>("/contracts", { params })).data;
+      },
+      async () => {
+        const works = await worksService.listAll({});
+        if (USE_MOCK && works.length === 0) return [];
+        return works
+          .filter((w) => w.contract_number || w.contractor_name)
+          .map((w) => ({
+            id: String(w.id),
+            work_id: w.id,
+            numero_contrato: w.contract_number ?? null,
+            objeto: w.object_description ?? null,
+            obra_nome: w.object_description?.trim() || `Obra #${w.id}`,
+            municipio: w.municipio ?? null,
+            bairro: w.neighborhood ?? null,
+            fornecedor: w.contractor_name ?? null,
+            cnpj_fornecedor: w.contractor_document ?? null,
+            secretaria: w.managing_unit ?? w.requesting_agency ?? null,
+            valor_original: w.contract_value ?? null,
+            valor_atual: (w.contract_value ?? 0) + (w.additive_value ?? 0),
+            valor_pago: w.paid_value ?? w.settled_value ?? w.committed_value ?? null,
+            percentual_aditivo: w.contract_value
+              ? Math.round(((w.additive_value ?? 0) / w.contract_value) * 10000) / 100
+              : null,
+            data_inicio: w.signed_at ?? null,
+            data_fim: w.due_at ?? null,
+            dias_para_vencimento: w.due_at
+              ? Math.ceil((new Date(w.due_at).getTime() - Date.now()) / 86_400_000)
+              : null,
+            status: w.finished_at
+              ? "Encerrado"
+              : w.due_at && new Date(w.due_at) < new Date()
+                ? "Vencido"
+                : "Vigente",
+            score_argus: w.efficiency_score ?? null,
+            classificacao_risco:
+              w.efficiency_score != null
+                ? w.efficiency_score < 30
+                  ? "Crítico"
+                  : w.efficiency_score < 50
+                    ? "Alto"
+                    : w.efficiency_score < 70
+                      ? "Médio"
+                      : "Baixo"
+                : null,
+            alertas: (w.alerts ?? []).length,
+            acao_sugerida: null,
+          }));
+      },
+    );
+  },
+
   /** Lista legada (mantida para compatibilidade). */
   listLegacy: async (_params: { q?: string } = {}): Promise<Contrato[]> => {
     const works = await worksService.listAll({});
@@ -1043,17 +1132,14 @@ export const fornecedoresService = {
    * Endpoint novo: GET /suppliers/ranking
    */
   ranking: (filters: FornecedoresRankingFilters = {}): Promise<SupplierRankingItem[]> =>
-    callOrMock<SupplierRankingItem[]>(
-      async () => {
-        const params: Record<string, unknown> = {};
-        if (filters.municipio) params.municipio = filters.municipio;
-        if (filters.bairro) params.bairro = filters.bairro;
-        if (filters.risco) params.risco = filters.risco;
-        if (filters.limit) params.limit = filters.limit;
-        return (await api.get<SupplierRankingItem[]>("/suppliers/ranking", { params })).data;
-      },
-      [],
-    ),
+    callOrMock<SupplierRankingItem[]>(async () => {
+      const params: Record<string, unknown> = {};
+      if (filters.municipio) params.municipio = filters.municipio;
+      if (filters.bairro) params.bairro = filters.bairro;
+      if (filters.risco) params.risco = filters.risco;
+      if (filters.limit) params.limit = filters.limit;
+      return (await api.get<SupplierRankingItem[]>("/suppliers/ranking", { params })).data;
+    }, []),
 
   /**
    * Detalhe completo de um fornecedor.
@@ -1129,7 +1215,100 @@ export const mlService = {
 };
 
 /* ========================================================================== */
-/* 14. exportsService                                                         */
+/* 14. reportsService — Relatórios Executivos                                 */
+/* ========================================================================== */
+
+export const reportsService = {
+  /** Relatório executivo geral com KPIs, prioridades, bairros críticos, fornecedores e recomendações. */
+  executive: (municipio = "Macae"): Promise<ExecutiveReport> =>
+    callOrMock<ExecutiveReport>(
+      async () =>
+        (await api.get<ExecutiveReport>("/reports/executive", { params: { municipio } })).data,
+      {
+        municipio,
+        gerado_em: new Date().toISOString(),
+        kpis: {
+          obras_monitoradas: 0,
+          valor_total_contratado: 0,
+          valor_total_pago: 0,
+          valor_total_aditivos: 0,
+          score_medio: 0,
+          obras_eficientes: 0,
+          obras_em_atencao: 0,
+          obras_alto_risco: 0,
+          obras_criticas: 0,
+          obras_atrasadas: 0,
+          obras_sem_geolocalizacao: 0,
+          contratos_aditivos_altos: 0,
+          percentual_executado: 0,
+        },
+        prioridades_hoje: [],
+        bairros_criticos: [],
+        fornecedores_revisao: [],
+        contratos_aditivos_altos: [],
+        alertas_criticos: [],
+        recomendacoes: ["Sem dados disponíveis."],
+      },
+    ),
+
+  /** Lista de obras críticas (score < 60). */
+  criticalWorks: (municipio = "Macae", limit = 50): Promise<CriticalWorkReportItem[]> =>
+    callOrMock<CriticalWorkReportItem[]>(
+      async () =>
+        (
+          await api.get<CriticalWorkReportItem[]>("/reports/critical-works", {
+            params: { municipio, limit },
+          })
+        ).data,
+      [],
+    ),
+
+  /** Análise consolidada por bairro. */
+  neighborhoods: (municipio = "Macae"): Promise<NeighborhoodReportItem[]> =>
+    callOrMock<NeighborhoodReportItem[]>(
+      async () =>
+        (
+          await api.get<NeighborhoodReportItem[]>("/reports/neighborhoods", {
+            params: { municipio },
+          })
+        ).data,
+      [],
+    ),
+
+  /** Análise consolidada de fornecedores. */
+  suppliers: (municipio = "Macae"): Promise<SupplierReportItem[]> =>
+    callOrMock<SupplierReportItem[]>(
+      async () =>
+        (await api.get<SupplierReportItem[]>("/reports/suppliers", { params: { municipio } })).data,
+      [],
+    ),
+
+  /** Relatório de qualidade dos dados. */
+  dataQuality: (municipio = "Macae"): Promise<DataQualityReportFull> =>
+    callOrMock<DataQualityReportFull>(
+      async () =>
+        (
+          await api.get<DataQualityReportFull>("/reports/data-quality", {
+            params: { municipio },
+          })
+        ).data,
+      {
+        municipio,
+        total_obras: 0,
+        obras_sem_bairro: 0,
+        obras_sem_geolocalizacao: 0,
+        obras_sem_valor: 0,
+        obras_sem_fornecedor: 0,
+        obras_sem_prazo: 0,
+        obras_sem_score: 0,
+        data_quality_score: 0,
+        obras_para_saneamento: [],
+      },
+    ),
+};
+
+/* ========================================================================== */
+/* 15. exportsService                                                         */
 /* ========================================================================== */
 
 /** Cria um object URL temporário e dispara o download via link programático. */
@@ -1152,7 +1331,9 @@ export const exportsService = {
     const url = exportsService.worksCsvUrl();
     const res = await fetch(url, { signal: AbortSignal.timeout(COLD_START_TIMEOUT_MS) });
     if (!res.ok) {
-      throw new Error(`Falha ao exportar CSV (HTTP ${res.status}). Verifique se o backend está disponível.`);
+      throw new Error(
+        `Falha ao exportar CSV (HTTP ${res.status}). Verifique se o backend está disponível.`,
+      );
     }
     const blob = await res.blob();
     triggerDownload(blob, filename, "text/csv");
@@ -1162,10 +1343,16 @@ export const exportsService = {
     const url = exportsService.worksXlsxUrl();
     const res = await fetch(url, { signal: AbortSignal.timeout(COLD_START_TIMEOUT_MS) });
     if (!res.ok) {
-      throw new Error(`Falha ao exportar XLSX (HTTP ${res.status}). Verifique se o backend está disponível.`);
+      throw new Error(
+        `Falha ao exportar XLSX (HTTP ${res.status}). Verifique se o backend está disponível.`,
+      );
     }
     const blob = await res.blob();
-    triggerDownload(blob, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    triggerDownload(
+      blob,
+      filename,
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
   },
 
   exportClientCsv: (rows: Record<string, unknown>[], filename = "argus-relatorio.csv"): void => {
@@ -1180,7 +1367,7 @@ export const exportsService = {
             if (v == null) return "";
             const s = String(v);
             return s.includes(";") || s.includes('"') || s.includes("\n")
-              ? `"${s.replace(/"/g, '""')}"` 
+              ? `"${s.replace(/"/g, '""')}"`
               : s;
           })
           .join(";"),

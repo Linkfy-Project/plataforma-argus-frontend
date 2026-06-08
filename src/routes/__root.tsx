@@ -74,14 +74,26 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Plataforma Argus — Monitoramento de Obras Públicas" },
-      { name: "description", content: "Plataforma de monitoramento e gestão de obras públicas do estado do Rio de Janeiro." },
+      {
+        name: "description",
+        content:
+          "Plataforma de monitoramento e gestão de obras públicas do estado do Rio de Janeiro.",
+      },
       { name: "author", content: "Plataforma Argus" },
       { property: "og:title", content: "Plataforma Argus — Monitoramento de Obras Públicas" },
-      { property: "og:description", content: "Plataforma de monitoramento e gestão de obras públicas do estado do Rio de Janeiro." },
+      {
+        property: "og:description",
+        content:
+          "Plataforma de monitoramento e gestão de obras públicas do estado do Rio de Janeiro.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "Plataforma Argus — Monitoramento de Obras Públicas" },
-      { name: "twitter:description", content: "Plataforma de monitoramento e gestão de obras públicas do estado do Rio de Janeiro." },
+      {
+        name: "twitter:description",
+        content:
+          "Plataforma de monitoramento e gestão de obras públicas do estado do Rio de Janeiro.",
+      },
       { property: "og:image", content: "/og-image.png" },
       { name: "twitter:image", content: "/og-image.png" },
     ],

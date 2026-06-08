@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { Search, MapPin, Calendar, ArrowRight, Wallet, Building } from "lucide-react";
+import { Search, MapPin, Calendar, ArrowRight, Wallet, Building, RefreshCw } from "lucide-react";
 import { obrasService } from "@/lib/api";
 import { StatusBadge } from "@/components/argus/StatusBadge";
 import { LoadingState, EmptyState, ErrorState } from "@/components/argus/EmptyState";
@@ -46,9 +46,7 @@ function CidadaoObras() {
     return (
       <div>
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Obras Públicas
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Obras Públicas</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Conheça as obras de infraestrutura em monitoramento no município.
           </p>
@@ -66,9 +64,7 @@ function CidadaoObras() {
     <div className="space-y-6">
       {/* Cabeçalho */}
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Obras Públicas
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Obras Públicas</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Conheça as obras de infraestrutura em monitoramento no município de Macaé.
         </p>
@@ -96,11 +92,7 @@ function CidadaoObras() {
       {items.length === 0 ? (
         <EmptyState
           message="Nenhuma obra encontrada."
-          hint={
-            debouncedQ
-              ? "Tente buscar com outros termos."
-              : "Aguardando dados do servidor."
-          }
+          hint={debouncedQ ? "Tente buscar com outros termos." : "Aguardando dados do servidor."}
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -113,7 +105,10 @@ function CidadaoObras() {
                 role="button"
                 tabIndex={0}
                 data-testid={`obra-card-${obra.id}`}
-                onClick={() => { setSelectedObraId(obra.id); setModalOpen(true); }}
+                onClick={() => {
+                  setSelectedObraId(obra.id);
+                  setModalOpen(true);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
@@ -141,11 +136,7 @@ function CidadaoObras() {
                 {/* Bairro e município */}
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <MapPin className="h-3.5 w-3.5 shrink-0" />
-                  <span>
-                    {obra.bairro
-                      ? `${obra.bairro}, ${obra.municipio}`
-                      : obra.municipio}
-                  </span>
+                  <span>{obra.bairro ? `${obra.bairro}, ${obra.municipio}` : obra.municipio}</span>
                 </div>
 
                 {/* Construtora */}
@@ -174,6 +165,17 @@ function CidadaoObras() {
                     <span>Previsão de Entrega: {fmtDate(obra.data_fim_prevista)}</span>
                   </div>
                 )}
+
+                {/* Última atualização */}
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <RefreshCw className="h-3 w-3 shrink-0" />
+                  <span>
+                    Última atualização:{" "}
+                    {obra.data_fim_prevista
+                      ? fmtDate(obra.data_fim_prevista)
+                      : "Sem atualização recente"}
+                  </span>
+                </div>
 
                 {/* Rodapé — status + "ver detalhes" */}
                 <div className="mt-4 flex items-center justify-between border-t border-border pt-3">

@@ -27,9 +27,31 @@ const LAYER_DEFS: {
   weight: number;
   defaultActive?: boolean;
 }[] = [
-  { key: "municipality", label: "Município", layerType: "municipality", color: "#1e3a8a", fillOpacity: 0.08, weight: 3 },
-  { key: "census_tract", label: "Setores censitários", layerType: "census_tract", color: "#6366f1", fillOpacity: 0.1, weight: 1.5 },
-  { key: "road", label: "Malha viária", layerType: "road", color: "#f97316", fillOpacity: 0, weight: 2, defaultActive: false },
+  {
+    key: "municipality",
+    label: "Município",
+    layerType: "municipality",
+    color: "#1e3a8a",
+    fillOpacity: 0.08,
+    weight: 3,
+  },
+  {
+    key: "census_tract",
+    label: "Setores censitários",
+    layerType: "census_tract",
+    color: "#6366f1",
+    fillOpacity: 0.1,
+    weight: 1.5,
+  },
+  {
+    key: "road",
+    label: "Malha viária",
+    layerType: "road",
+    color: "#f97316",
+    fillOpacity: 0,
+    weight: 2,
+    defaultActive: false,
+  },
 ];
 
 function CidadaoIndex() {
@@ -156,7 +178,8 @@ function CidadaoIndex() {
           O Mapa da Minha Cidade
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Veja no mapa as obras públicas da sua cidade com delimitações territoriais. Clique nos marcadores para saber mais.
+          Veja no mapa as obras públicas da sua cidade com delimitações territoriais. Clique nos
+          marcadores para saber mais.
         </p>
       </div>
 
@@ -173,12 +196,7 @@ function CidadaoIndex() {
 
       {/* Mapa com camadas territoriais */}
       <section className="overflow-hidden rounded-xl border border-border shadow-sm">
-        <CidadaoMap
-          works={allWorks}
-          layers={geoLayers}
-          height="480px"
-          filteredIds={filteredIds}
-        />
+        <CidadaoMap works={allWorks} layers={geoLayers} height="480px" filteredIds={filteredIds} />
       </section>
 
       {/* Resultado da busca */}
@@ -230,9 +248,7 @@ function CidadaoIndex() {
 
       {/* CTA para lista completa */}
       <section className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-6 text-center md:p-8">
-        <h2 className="text-lg font-semibold text-foreground">
-          Quer ver a lista completa?
-        </h2>
+        <h2 className="text-lg font-semibold text-foreground">Quer ver a lista completa?</h2>
         <p className="max-w-md text-sm text-muted-foreground">
           Acesse a lista de todas as obras públicas com detalhes de valores, prazos e situação.
         </p>

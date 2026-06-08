@@ -27,7 +27,12 @@ export const Route = createFileRoute("/cidadao/obras/$id")({
 function CidadaoObraDetail() {
   const { id } = Route.useParams();
 
-  const { data: obra, isLoading, isError, refetch } = useQuery({
+  const {
+    data: obra,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["cidadao-obra", id],
     queryFn: () => obrasService.get(id),
     staleTime: 3 * 60_000,
@@ -44,7 +49,7 @@ function CidadaoObraDetail() {
   const percentExecucao =
     o.valor_contratado > 0
       ? Math.min(100, Math.round((o.valor_executado / o.valor_contratado) * 100))
-      : o.percentual_execucao ?? 0;
+      : (o.percentual_execucao ?? 0);
 
   const saldoRestante = Math.max(0, o.valor_contratado - o.valor_executado);
 
@@ -93,9 +98,7 @@ function CidadaoObraDetail() {
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1.5">
                   <MapPin className="h-4 w-4 shrink-0" />
-                  <span>
-                    {o.bairro ? `${o.bairro}, ${o.municipio}` : o.municipio}
-                  </span>
+                  <span>{o.bairro ? `${o.bairro}, ${o.municipio}` : o.municipio}</span>
                 </div>
                 <StatusBadge status={o.status} />
               </div>
@@ -131,18 +134,10 @@ function CidadaoObraDetail() {
               />
             )}
             {o.orgao_responsavel && o.orgao_responsavel !== "—" && (
-              <InfoRow
-                icon={Building}
-                label="Órgão responsável"
-                value={o.orgao_responsavel}
-              />
+              <InfoRow icon={Building} label="Órgão responsável" value={o.orgao_responsavel} />
             )}
             {o.data_inicio && (
-              <InfoRow
-                icon={Calendar}
-                label="Data de início"
-                value={fmtDate(o.data_inicio)}
-              />
+              <InfoRow icon={Calendar} label="Data de início" value={fmtDate(o.data_inicio)} />
             )}
             {o.data_fim_prevista && (
               <InfoRow
@@ -164,15 +159,11 @@ function CidadaoObraDetail() {
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <p className="text-xs text-muted-foreground">Custo Total Previsto</p>
-              <p className="text-xl font-bold text-foreground">
-                {fmtBRL(o.valor_contratado)}
-              </p>
+              <p className="text-xl font-bold text-foreground">{fmtBRL(o.valor_contratado)}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Quanto já foi pago</p>
-              <p className="text-xl font-bold text-foreground">
-                {fmtBRL(o.valor_executado)}
-              </p>
+              <p className="text-xl font-bold text-foreground">{fmtBRL(o.valor_executado)}</p>
             </div>
           </div>
 
@@ -192,9 +183,7 @@ function CidadaoObraDetail() {
                 <Wallet className="h-4 w-4" />
                 Saldo restante
               </span>
-              <span className="text-base font-bold text-foreground">
-                {fmtBRL(saldoRestante)}
-              </span>
+              <span className="text-base font-bold text-foreground">{fmtBRL(saldoRestante)}</span>
             </div>
           </div>
         </div>
@@ -207,9 +196,7 @@ function CidadaoObraDetail() {
           </h2>
           <div className="mt-3 flex items-center gap-2">
             <StatusBadge status={o.status} />
-            <p className={cn("text-sm font-medium", situacao.cor)}>
-              {situacao.mensagem}
-            </p>
+            <p className={cn("text-sm font-medium", situacao.cor)}>{situacao.mensagem}</p>
           </div>
         </div>
       </div>
@@ -233,9 +220,7 @@ function InfoRow({
     <div
       className={cn(
         "flex items-start gap-3 rounded-lg border p-3",
-        highlight
-          ? "border-primary/30 bg-primary/5"
-          : "border-border bg-background/60",
+        highlight ? "border-primary/30 bg-primary/5" : "border-border bg-background/60",
       )}
     >
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -244,7 +229,9 @@ function InfoRow({
         <p
           className={cn(
             "truncate",
-            highlight ? "text-base font-bold text-foreground" : "text-sm font-medium text-foreground",
+            highlight
+              ? "text-base font-bold text-foreground"
+              : "text-sm font-medium text-foreground",
           )}
         >
           {value}

@@ -139,11 +139,15 @@ function ConfigPage() {
           : "ok";
       const isHealthy = statusStr.toLowerCase() === "ok" || statusStr.toLowerCase() === "healthy";
       setApiStatus(isHealthy);
-      setApiMessage(isHealthy ? `API respondendo: ${statusStr}` : `Status inesperado: ${statusStr}`);
+      setApiMessage(
+        isHealthy ? `API respondendo: ${statusStr}` : `Status inesperado: ${statusStr}`,
+      );
     } catch (err) {
       setApiStatus(false);
       setApiMessage(
-        err instanceof Error ? `Falha na conexão: ${err.message}` : "Falha desconhecida ao conectar com a API.",
+        err instanceof Error
+          ? `Falha na conexão: ${err.message}`
+          : "Falha desconhecida ao conectar com a API.",
       );
     } finally {
       setApiChecking(false);
@@ -344,11 +348,7 @@ function ConfigPage() {
               <span className="text-muted-foreground">Backend</span>
               <span className="flex items-center gap-2 font-mono text-xs">
                 <StatusDot online={apiStatus} />
-                {apiStatus === null
-                  ? "Não verificado"
-                  : apiStatus
-                    ? "Respondendo"
-                    : "Indisponível"}
+                {apiStatus === null ? "Não verificado" : apiStatus ? "Respondendo" : "Indisponível"}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -363,11 +363,16 @@ function ConfigPage() {
         {/* ------------------------------------------------------------------ */}
         <Section icon={Palette} title="Tema da interface">
           <p className="text-sm text-muted-foreground">
-            Tema institucional Argus, com paleta azul corporativa otimizada para painéis de gestão pública.
+            Tema institucional Argus, com paleta azul corporativa otimizada para painéis de gestão
+            pública.
           </p>
           <div className="mt-3 flex gap-2">
             {["#287BBE", "#06162F", "#38A5DB", "#22C55E", "#F59E0B", "#DC2626"].map((c) => (
-              <span key={c} className="h-8 w-8 rounded-md border border-border" style={{ background: c }} />
+              <span
+                key={c}
+                className="h-8 w-8 rounded-md border border-border"
+                style={{ background: c }}
+              />
             ))}
           </div>
         </Section>

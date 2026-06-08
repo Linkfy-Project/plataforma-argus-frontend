@@ -60,14 +60,14 @@ export function LoadingState({
           {phase === "loading" && message}
           {phase === "coldstart" && (
             <>
-              <Server className="h-3.5 w-3.5" />
-              A API pode estar inicializando no Render (cold start). Aguarde alguns segundos...
+              <Server className="h-3.5 w-3.5" />A API pode estar inicializando no Render (cold
+              start). Aguarde alguns segundos...
             </>
           )}
           {phase === "retry" && (
             <>
-              <WifiOff className="h-3.5 w-3.5" />
-              A API está demorando para responder. Clique em "Tentar novamente" abaixo.
+              <WifiOff className="h-3.5 w-3.5" />A API está demorando para responder. Clique em
+              "Tentar novamente" abaixo.
             </>
           )}
         </p>
@@ -134,8 +134,9 @@ export function ErrorState({
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
             Se o problema persistir, verifique se o backend está rodando em{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-[11px]">/api/argus/health</code>.
-            Em ambientes no Render, a API pode levar até 60s para inicializar após período de inatividade.
+            <code className="rounded bg-muted px-1 py-0.5 text-[11px]">/api/argus/health</code>. Em
+            ambientes no Render, a API pode levar até 60s para inicializar após período de
+            inatividade.
           </span>
         </div>
       )}

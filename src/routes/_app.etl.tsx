@@ -1,14 +1,29 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CalendarClock, Database, PlayCircle, RefreshCcw, Timer, Activity, Server, Building2, Brain,
+  CalendarClock,
+  Database,
+  PlayCircle,
+  RefreshCcw,
+  Timer,
+  Activity,
+  Server,
+  Building2,
+  Brain,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/argus/PageHeader";
 import { StatCard } from "@/components/argus/StatCard";
 import { LoadingState, ErrorState } from "@/components/argus/EmptyState";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { etlService, worksService, mlService } from "@/lib/api";
 import { formatDateBR, fmtBRL } from "@/lib/format";
 import { normalizeApiError } from "@/lib/score";
@@ -37,7 +52,7 @@ function EtlPage() {
       qc.invalidateQueries({ queryKey: ["scoring-rules"] }),
     ]);
 
-  const wrap = <T,>(fn: () => Promise<T>, msgs: { loading: string; success: string }) =>
+  const useEtlMutation = <T,>(fn: () => Promise<T>, msgs: { loading: string; success: string }) =>
     useMutation({
       mutationFn: async () => {
         const tid = toast.loading(msgs.loading);
@@ -53,26 +68,26 @@ function EtlPage() {
       },
     });
 
-  const syncAll = wrap(
-    () => etlService.syncPublicData({ municipio: "Macae" }),
-    { loading: "Sincronização em andamento...", success: "Dados públicos sincronizados com sucesso." },
-  );
-  const tcerj = wrap(
-    () => etlService.runTcerj({ municipio: "Macae" }),
-    { loading: "Extraindo dados do TCE-RJ...", success: "Extração TCE-RJ concluída." },
-  );
-  const macae = wrap(
-    () => etlService.runMacaePortal(),
-    { loading: "Importando Portal da Transparência de Macaé...", success: "Importação do Portal de Macaé concluída." },
-  );
-  const recompute = wrap(
-    () => worksService.recomputeAll(),
-    { loading: "Recalculando todos os índices ARGUS...", success: "Recalculo do Índice ARGUS concluído." },
-  );
-  const mlRetrain = wrap(
-    () => mlService.retrainReal(),
-    { loading: "Retreinando modelo ML com dados reais...", success: "Modelo ML retreinado com sucesso." },
-  );
+  const syncAll = useEtlMutation(() => etlService.syncPublicData({ municipio: "Macae" }), {
+    loading: "Sincronização em andamento...",
+    success: "Dados públicos sincronizados com sucesso.",
+  });
+  const tcerj = useEtlMutation(() => etlService.runTcerj({ municipio: "Macae" }), {
+    loading: "Extraindo dados do TCE-RJ...",
+    success: "Extração TCE-RJ concluída.",
+  });
+  const macae = useEtlMutation(() => etlService.runMacaePortal(), {
+    loading: "Importando Portal da Transparência de Macaé...",
+    success: "Importação do Portal de Macaé concluída.",
+  });
+  const recompute = useEtlMutation(() => worksService.recomputeAll(), {
+    loading: "Recalculando todos os índices ARGUS...",
+    success: "Recalculo do Índice ARGUS concluído.",
+  });
+  const mlRetrain = useEtlMutation(() => mlService.retrainReal(), {
+    loading: "Retreinando modelo ML com dados reais...",
+    success: "Modelo ML retreinado com sucesso.",
+  });
 
   /* ── Tabela de referência SINAPI ── */
   const sinapi = useQuery({
@@ -93,7 +108,11 @@ function EtlPage() {
 
   const s = status.data ?? {};
   const anyRunning =
-    syncAll.isPending || tcerj.isPending || macae.isPending || recompute.isPending || mlRetrain.isPending;
+    syncAll.isPending ||
+    tcerj.isPending ||
+    macae.isPending ||
+    recompute.isPending ||
+    mlRetrain.isPending;
 
   return (
     <div>
@@ -208,13 +227,20 @@ function EtlPage() {
       <div className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-foreground">Pipeline de sincronização ARGUS</h3>
         <ol className="mt-3 space-y-3 text-sm text-muted-foreground">
-          <li>1. Extração dos dados do <strong className="text-foreground">TCE-RJ</strong> para o município de Macaé.</li>
-          <li>2. Extração dos dados do <strong className="text-foreground">Portal da Transparência de Macaé</strong>.</li>
+          <li>
+            1. Extração dos dados do <strong className="text-foreground">TCE-RJ</strong> para o
+            município de Macaé.
+          </li>
+          <li>
+            2. Extração dos dados do{" "}
+            <strong className="text-foreground">Portal da Transparência de Macaé</strong>.
+          </li>
           <li>3. Importação consolidada dos CSVs para o banco analítico.</li>
           <li>4. Recálculo do Índice Composto de Eficiência ARGUS e detecção de alertas.</li>
         </ol>
         <p className="mt-4 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-          Job: <code className="font-mono">{s.job_id ?? "public_data_sync"}</code> · Fuso horário: {s.timezone ?? "America/Sao_Paulo"}
+          Job: <code className="font-mono">{s.job_id ?? "public_data_sync"}</code> · Fuso horário:{" "}
+          {s.timezone ?? "America/Sao_Paulo"}
         </p>
       </div>
 
@@ -226,7 +252,8 @@ function EtlPage() {
             <h3 className="text-sm font-semibold text-foreground">Tabela de Referência SINAPI</h3>
           </div>
           <p className="text-xs text-muted-foreground mb-3">
-            Fonte: {sinapi.data.source} · Região: {sinapi.data.region} · Referência: {sinapi.data.reference_date}
+            Fonte: {sinapi.data.source} · Região: {sinapi.data.region} · Referência:{" "}
+            {sinapi.data.reference_date}
           </p>
           <Table>
             <TableHeader>
@@ -238,8 +265,12 @@ function EtlPage() {
             <TableBody>
               {Object.entries(sinapi.data.benchmarks).map(([tipo, custo]) => (
                 <TableRow key={tipo}>
-                  <TableCell className="font-medium capitalize">{tipo.replace(/_/g, ' ')}</TableCell>
-                  <TableCell className="text-right tabular-nums">{fmtBRL(custo as number)}</TableCell>
+                  <TableCell className="font-medium capitalize">
+                    {tipo.replace(/_/g, " ")}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {fmtBRL(custo as number)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -258,17 +289,23 @@ function EtlPage() {
             Fonte: {ipca.data.source} · Série: {ipca.data.series}
           </p>
           <p className="text-sm text-muted-foreground mb-3">
-            O sistema aplica correção inflacionária pelo IPCA para comparar justamente obras de diferentes anos.
-            Valores são corrigidos para a data atual antes de comparar com o benchmark SINAPI.
+            O sistema aplica correção inflacionária pelo IPCA para comparar justamente obras de
+            diferentes anos. Valores são corrigidos para a data atual antes de comparar com o
+            benchmark SINAPI.
           </p>
           {/* Mostrar últimos 5 índices se disponíveis */}
           {ipca.data.index && (
             <div className="flex gap-2 flex-wrap">
-              {Object.entries(ipca.data.index).slice(-5).map(([date, value]) => (
-                <span key={date} className="rounded-md border border-border bg-muted/50 px-2 py-1 text-xs">
-                  {date}: <strong>{Number(value).toFixed(2)}</strong>
-                </span>
-              ))}
+              {Object.entries(ipca.data.index)
+                .slice(-5)
+                .map(([date, value]) => (
+                  <span
+                    key={date}
+                    className="rounded-md border border-border bg-muted/50 px-2 py-1 text-xs"
+                  >
+                    {date}: <strong>{Number(value).toFixed(2)}</strong>
+                  </span>
+                ))}
             </div>
           )}
         </div>

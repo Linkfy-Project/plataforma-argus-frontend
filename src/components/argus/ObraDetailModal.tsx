@@ -1,18 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  Building,
-  Calendar,
-  MapPin,
-  Wallet,
-  HardHat,
-} from "lucide-react";
+import { Building, Calendar, MapPin, Wallet, HardHat } from "lucide-react";
 import { obrasService } from "@/lib/api";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/argus/StatusBadge";
 import { fmtBRL, fmtDate } from "@/lib/format";
@@ -59,21 +48,22 @@ export function ObraDetailModal({ obraId, open, onOpenChange }: ObraDetailModalP
               )}
             </div>
             {/* Badge de semáforo no cabeçalho */}
-            {obra?.eficiencia != null && (() => {
-              const s = getSemaforo(obra.eficiencia);
-              return (
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-semibold shrink-0",
-                    s.bg,
-                    s.color,
-                  )}
-                >
-                  <span>{s.emoji}</span>
-                  {s.label}
-                </span>
-              );
-            })()}
+            {obra?.eficiencia != null &&
+              (() => {
+                const s = getSemaforo(obra.eficiencia);
+                return (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-semibold shrink-0",
+                      s.bg,
+                      s.color,
+                    )}
+                  >
+                    <span>{s.emoji}</span>
+                    {s.label}
+                  </span>
+                );
+              })()}
           </div>
         </DialogHeader>
 
@@ -108,11 +98,7 @@ export function ObraDetailModal({ obraId, open, onOpenChange }: ObraDetailModalP
                   label="Construtora"
                   value={obra.empresa_contratada || "—"}
                 />
-                <InfoCard
-                  icon={Calendar}
-                  label="Início"
-                  value={fmtDate(obra.data_inicio)}
-                />
+                <InfoCard icon={Calendar} label="Início" value={fmtDate(obra.data_inicio)} />
                 <InfoCard
                   icon={Calendar}
                   label="Previsão de Entrega"
@@ -162,14 +148,15 @@ export function ObraDetailModal({ obraId, open, onOpenChange }: ObraDetailModalP
                     <span className="font-semibold text-foreground">
                       {obra.valor_contratado > 0
                         ? Math.round((obra.valor_executado / obra.valor_contratado) * 100)
-                        : obra.percentual_execucao ?? 0}%
+                        : (obra.percentual_execucao ?? 0)}
+                      %
                     </span>
                   </div>
                   <Progress
                     value={
                       obra.valor_contratado > 0
                         ? (obra.valor_executado / obra.valor_contratado) * 100
-                        : obra.percentual_execucao ?? 0
+                        : (obra.percentual_execucao ?? 0)
                     }
                     className="h-2.5"
                   />

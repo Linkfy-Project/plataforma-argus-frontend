@@ -28,7 +28,12 @@ const nivelConfig: Record<string, { label: string; color: string; bg: string; bo
 };
 
 function CidadaoNotificacoes() {
-  const { data: alertas, isLoading, isError, refetch } = useQuery({
+  const {
+    data: alertas,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["cidadao-notificacoes"],
     queryFn: () => alertasService.list(),
     staleTime: 2 * 60_000,
@@ -63,8 +68,8 @@ function CidadaoNotificacoes() {
         <p className="text-sm text-muted-foreground">
           {filteredAlertas.length > 0 ? (
             <>
-              <span className="font-semibold text-foreground">{filteredAlertas.length}</span>{" "}
-              alerta{filteredAlertas.length > 1 ? "s" : ""} de nível{" "}
+              <span className="font-semibold text-foreground">{filteredAlertas.length}</span> alerta
+              {filteredAlertas.length > 1 ? "s" : ""} de nível{" "}
               <span className="font-medium text-destructive">Alto</span> ou{" "}
               <span className="font-medium text-destructive">Crítico</span> encontrado
               {filteredAlertas.length > 1 ? "s" : ""}
@@ -114,9 +119,7 @@ function CidadaoNotificacoes() {
                 </div>
 
                 {/* Titulo */}
-                <h3 className="mt-3 text-base font-semibold text-foreground">
-                  {alerta.titulo}
-                </h3>
+                <h3 className="mt-3 text-base font-semibold text-foreground">{alerta.titulo}</h3>
 
                 {/* Descricao */}
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
@@ -142,9 +145,7 @@ function CidadaoNotificacoes() {
                 {/* Acao sugerida */}
                 {alerta.acao_sugerida && (
                   <div className="mt-3 rounded-lg border border-dashed border-border bg-muted/30 p-3">
-                    <p className="text-xs font-medium text-foreground">
-                      Ação sugerida:
-                    </p>
+                    <p className="text-xs font-medium text-foreground">Ação sugerida:</p>
                     <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
                       {alerta.acao_sugerida}
                     </p>

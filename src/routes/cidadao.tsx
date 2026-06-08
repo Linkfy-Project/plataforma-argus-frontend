@@ -27,7 +27,8 @@ function CidadaoLayout() {
     staleTime: 5 * 60_000,
   });
   const alertCount = alertas?.length ?? 0;
-  const criticalCount = alertas?.filter((a) => a.nivel === "Crítico" || a.nivel === "Alto").length ?? 0;
+  const criticalCount =
+    alertas?.filter((a) => a.nivel === "Crítico" || a.nivel === "Alto").length ?? 0;
 
   const isActive = (href: string, exact: boolean) => {
     if (exact) return location.pathname === href;
@@ -47,7 +48,10 @@ function CidadaoLayout() {
       {/* Header público */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-backdrop-blur:bg-card/80">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link to="/cidadao" className="flex items-center gap-3 transition-opacity hover:opacity-80">
+          <Link
+            to="/cidadao"
+            className="flex items-center gap-3 transition-opacity hover:opacity-80"
+          >
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground shadow-sm">
               A
             </div>
@@ -61,7 +65,13 @@ function CidadaoLayout() {
             {NAV_ITEMS.map((item) => (
               <Link
                 key={item.href}
-                to={item.href as any}
+                to={
+                  item.href as
+                    | "/cidadao"
+                    | "/cidadao/obras"
+                    | "/cidadao/transparencia"
+                    | "/cidadao/notificacoes"
+                }
                 className={cn(
                   "rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   isActive(item.href, item.exact)
@@ -122,8 +132,8 @@ function CidadaoLayout() {
                 <span className="text-sm font-bold text-foreground">ARGUS</span>
               </div>
               <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                Plataforma de Monitoramento de Obras Públicas. Transparência e
-                eficiência na gestão de recursos públicos.
+                Plataforma de Monitoramento de Obras Públicas. Transparência e eficiência na gestão
+                de recursos públicos.
               </p>
             </div>
             <div>
@@ -132,27 +142,42 @@ function CidadaoLayout() {
               </h4>
               <ul className="space-y-2">
                 <li>
-                  <Link to="/cidadao" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  <Link
+                    to="/cidadao"
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
                     Mapa
                   </Link>
                 </li>
                 <li>
-                  <Link to="/cidadao/obras" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  <Link
+                    to="/cidadao/obras"
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
                     Obras públicas
                   </Link>
                 </li>
                 <li>
-                  <Link to="/cidadao/transparencia" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  <Link
+                    to="/cidadao/transparencia"
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
                     Como funciona
                   </Link>
                 </li>
                 <li>
-                  <Link to="/cidadao/notificacoes" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  <Link
+                    to="/cidadao/notificacoes"
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
                     Alertas
                   </Link>
                 </li>
                 <li>
-                  <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  <Link
+                    to="/login"
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
                     Painel do gestor
                   </Link>
                 </li>

@@ -1,29 +1,64 @@
 import type { Obra } from "@/types";
 
 const municipiosRJ = [
-  "Rio de Janeiro", "Niterói", "São Gonçalo", "Duque de Caxias", "Nova Iguaçu",
-  "Petrópolis", "Volta Redonda", "Campos dos Goytacazes", "Macaé", "Angra dos Reis",
-  "Cabo Frio", "Teresópolis",
+  "Rio de Janeiro",
+  "Niterói",
+  "São Gonçalo",
+  "Duque de Caxias",
+  "Nova Iguaçu",
+  "Petrópolis",
+  "Volta Redonda",
+  "Campos dos Goytacazes",
+  "Macaé",
+  "Angra dos Reis",
+  "Cabo Frio",
+  "Teresópolis",
 ];
 
 const empresas = [
-  "Construtora Atlântico S.A.", "Engebrás Ltda.", "OAS Engenharia", "Construcap",
-  "Queiroz Galvão", "Odebrecht Infra", "Mendes Júnior",
+  "Construtora Atlântico S.A.",
+  "Engebrás Ltda.",
+  "OAS Engenharia",
+  "Construcap",
+  "Queiroz Galvão",
+  "Odebrecht Infra",
+  "Mendes Júnior",
 ];
 const orgaos = [
-  "Secretaria Municipal de Obras", "Secretaria de Infraestrutura", "Prefeitura Municipal",
-  "Secretaria de Transportes", "Secretaria de Saúde",
+  "Secretaria Municipal de Obras",
+  "Secretaria de Infraestrutura",
+  "Prefeitura Municipal",
+  "Secretaria de Transportes",
+  "Secretaria de Saúde",
 ];
 const statuses: Obra["status"][] = [
-  "Em andamento", "Em andamento", "Em andamento", "Concluída", "Planejada", "Atrasada", "Paralisada",
+  "Em andamento",
+  "Em andamento",
+  "Em andamento",
+  "Concluída",
+  "Planejada",
+  "Atrasada",
+  "Paralisada",
 ];
 const nomes = [
-  "Pavimentação da Av. Brasil", "Construção da UPA Central", "Reforma da Escola Municipal Tiradentes",
-  "Modernização do Hospital Geral", "Ampliação do Sistema de Esgoto", "Construção do Viaduto Norte",
-  "Revitalização da Praça da Matriz", "Drenagem do Bairro Rocha", "Construção da Creche Municipal",
-  "Reforma do Terminal Rodoviário", "Pavimentação da Estrada do Sol", "Construção do Posto de Saúde",
-  "Iluminação Pública da Orla", "Recuperação da Ponte do Rio Macacu", "Centro Cultural Municipal",
-  "Saneamento Básico Zona Sul", "Reforma do Mercado Público", "Construção de Ciclovia",
+  "Pavimentação da Av. Brasil",
+  "Construção da UPA Central",
+  "Reforma da Escola Municipal Tiradentes",
+  "Modernização do Hospital Geral",
+  "Ampliação do Sistema de Esgoto",
+  "Construção do Viaduto Norte",
+  "Revitalização da Praça da Matriz",
+  "Drenagem do Bairro Rocha",
+  "Construção da Creche Municipal",
+  "Reforma do Terminal Rodoviário",
+  "Pavimentação da Estrada do Sol",
+  "Construção do Posto de Saúde",
+  "Iluminação Pública da Orla",
+  "Recuperação da Ponte do Rio Macacu",
+  "Centro Cultural Municipal",
+  "Saneamento Básico Zona Sul",
+  "Reforma do Mercado Público",
+  "Construção de Ciclovia",
 ];
 
 function seedRand(seed: number) {
@@ -47,7 +82,8 @@ export const mockObras: Obra[] = Array.from({ length: 28 }).map((_, i) => {
   const end = new Date(start.getTime() + (180 + rnd() * 540) * 86400000);
   return {
     id: `OBR-${1000 + i}`,
-    nome: nomes[i % nomes.length] + (i >= nomes.length ? ` ${Math.floor(i / nomes.length) + 1}` : ""),
+    nome:
+      nomes[i % nomes.length] + (i >= nomes.length ? ` ${Math.floor(i / nomes.length) + 1}` : ""),
     municipio: municipiosRJ[Math.floor(rnd() * municipiosRJ.length)],
     status,
     valor_contratado: valor,

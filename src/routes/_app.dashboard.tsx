@@ -1,22 +1,26 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
 import {
   HardHat,
-  Activity,
   Wallet,
+  TrendingDown,
   AlertTriangle,
   Gauge,
   MapPin,
   ArrowRight,
-  Trophy,
-  TrendingDown,
-  TrendingUp,
-  BookOpen,
   Clock,
   Siren,
   Building2,
+  Map as MapIcon,
+  ShieldAlert,
+  MapPinOff,
+  Users,
+  BarChart3,
+  Lightbulb,
+  RefreshCw,
+  FileText,
+  Eye,
   ExternalLink,
 } from "lucide-react";
 import {
@@ -24,619 +28,1089 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import { PageHeader } from "@/components/argus/PageHeader";
-import { PredictiveRiskIndicator } from "@/components/argus/PredictiveRiskBadge";
 import { StatCard } from "@/components/argus/StatCard";
-import { LoadingState, ErrorState } from "@/components/argus/EmptyState";
 import { ScoreBadge } from "@/components/argus/ScoreBadge";
+import { EmptyState, LoadingState, ErrorState } from "@/components/argus/EmptyState";
 import { ObraDetailModal } from "@/components/argus/ObraDetailModal";
-import { analyticsService, worksService, etlService } from "@/lib/api";
-import { fmtBRL, fmtNumber, formatDateBR } from "@/lib/format";
-import { ARGUS_PILLARS, getRiskLevel, getScoreHex } from "@/lib/score";
-import type { SyncStatus } from "@/types";
-import { Progress } from "@/components/ui/progress";
+import { dashboardService, etlService, worksService } from "@/lib/api";
+import { fmtBRL, fmtNumber, fmtScore, formatDateBR } from "@/lib/format";
+import { getRiskLevel, getScoreClasses } from "@/lib/score";
+import type {
+  DashboardExecutiveSummary,
+  PriorityQueueItem,
+  RiskDistributionItem,
+  NeighborhoodRiskItem,
+  SupplierRankingItem,
+  SyncStatus,
+  WorkRead,
+} from "@/types";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+/* ========================================================================== */
+/* Rota                                                                        */
+/* ========================================================================== */
 
 export const Route = createFileRoute("/_app/dashboard")({
-  head: () => ({ meta: [{ title: "Painel — ARGUS Macaé-RJ" }] }),
+  head: () => ({ meta: [{ title: "Painel Executivo — ARGUS Macaé-RJ" }] }),
   component: DashboardPage,
 });
 
-const RISK_COLORS: Record<string, string> = {
-  Baixo: "#22C55E",
+/* ========================================================================== */
+/* Constantes de cores para o gráfico de risco                                  */
+/* ========================================================================== */
+
+const RISK_CHART_COLORS: Record<string, string> = {
+  Eficiente: "#22C55E",
   Atenção: "#F59E0B",
-  Alto: "#F97316",
+  "Alto risco": "#F97316",
   Crítico: "#DC2626",
-  Indefinido: "#94A3B8",
+  "Sem dados": "#94A3B8",
 };
+
+/* ========================================================================== */
+/* Funções de fallback isoladas — derivam dados de worksService.listAll         */
+/* ========================================================================== */
+
+/** Computa o resumo executivo a partir da lista bruta de obras. */
+function computeSummaryFromWorks(works: WorkRead[]): DashboardExecutiveSummary {
+  const today = new Date();
+  const scores = works.map((w) => w.efficiency_score).filter((s): s is number => s != null);
+  const avgScore = scores.length
+    ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2))
+    : 0;
+
+  const delayed = works.filter((w) => {
+    if (!w.due_at || w.finished_at) return false;
+    return new Date(w.due_at) < today;
+  }).length;
+
+  const criticas = works.filter((w) => (w.efficiency_score ?? 100) < 40).length;
+  const altoRisco = works.filter(
+    (w) => (w.efficiency_score ?? 100) >= 40 && (w.efficiency_score ?? 100) < 60,
+  ).length;
+  const emAtencao = works.filter(
+    (w) => (w.efficiency_score ?? 100) >= 60 && (w.efficiency_score ?? 100) < 80,
+  ).length;
+  const eficientes = works.filter((w) => (w.efficiency_score ?? 0) >= 80).length;
+
+  const semGeo = works.filter((w) => w.latitude == null || w.longitude == null).length;
+
+  const alertasCriticos = works.reduce(
+    (acc, w) =>
+      acc +
+      (w.alerts ?? []).filter(
+        (a) => a.severity === "critical" || a.severity === "danger" || a.severity === "crítico",
+      ).length,
+    0,
+  );
+  const alertasTotais = works.reduce((acc, w) => acc + (w.alerts ?? []).length, 0);
+
+  const fornecedores = new Set(works.map((w) => w.contractor_name?.trim()).filter(Boolean)).size;
+  const bairros = new Set(works.map((w) => w.neighborhood?.trim()).filter(Boolean)).size;
+
+  const comAditivosAltos = works.filter((w) => {
+    const val = w.contract_value ?? 0;
+    const add = w.additive_value ?? 0;
+    return val > 0 && add / val > 0.25;
+  }).length;
+
+  const valorTotal = works.reduce((acc, w) => acc + (w.contract_value ?? 0), 0);
+  const valorPago = works.reduce((acc, w) => acc + (w.paid_value ?? w.settled_value ?? 0), 0);
+  const valorRisco = works
+    .filter((w) => (w.efficiency_score ?? 100) < 60)
+    .reduce((acc, w) => acc + (w.contract_value ?? 0), 0);
+
+  const semBairro = works.filter((w) => !w.neighborhood?.trim()).length;
+  const semFornecedor = works.filter((w) => !w.contractor_name?.trim()).length;
+  const semPrazo = works.filter((w) => !w.due_at).length;
+  const semValor = works.filter((w) => w.contract_value == null || w.contract_value === 0).length;
+  const totalChecks = works.length * 4;
+  const issues = semBairro + semGeo + semFornecedor + semPrazo + semValor;
+  const dqScore =
+    works.length > 0 ? Math.round(Math.max(0, ((totalChecks - issues) / totalChecks) * 100)) : 0;
+
+  return {
+    municipio: "Macaé-RJ",
+    ultima_atualizacao: new Date().toISOString(),
+    obras_monitoradas: works.length,
+    valor_total_contratado: valorTotal,
+    valor_total_pago: valorPago,
+    valor_potencial_em_risco: valorRisco,
+    obras_criticas: criticas,
+    obras_alto_risco: altoRisco,
+    obras_em_atencao: emAtencao,
+    obras_eficientes: eficientes,
+    obras_atrasadas: delayed,
+    obras_sem_geolocalizacao: semGeo,
+    contratos_com_aditivos_altos: comAditivosAltos,
+    alertas_criticos: alertasCriticos,
+    alertas_totais: alertasTotais,
+    fornecedores_monitorados: fornecedores,
+    bairros_monitorados: bairros,
+    score_medio: avgScore,
+    data_quality_score: dqScore,
+  };
+}
+
+/** Computa a fila de prioridade a partir da lista bruta de obras. */
+function computePriorityFromWorks(works: WorkRead[]): PriorityQueueItem[] {
+  const today = new Date();
+
+  const scored = works
+    .map((w) => {
+      const score = w.efficiency_score ?? 50;
+      const isOverdue = !!w.due_at && !w.finished_at && new Date(w.due_at) < today;
+      const daysOverdue = isOverdue
+        ? Math.floor((today.getTime() - new Date(w.due_at!).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+      const criticalAlerts = (w.alerts ?? []).filter(
+        (a) => a.severity === "critical" || a.severity === "danger" || a.severity === "crítico",
+      ).length;
+
+      const valor = w.contract_value ?? 0;
+      const valorRisco = valor * (1 - score / 100);
+
+      let motivo = "Monitoramento de rotina";
+      if (score < 40) motivo = "Score ARGUS em nível crítico";
+      else if (isOverdue) motivo = `Obra atrasada em ${daysOverdue} dias`;
+      else if (criticalAlerts > 0) motivo = `${criticalAlerts} alerta(s) crítico(s) ativo(s)`;
+      else if (score < 60) motivo = "Eficiência abaixo do limiar mínimo";
+
+      let acao = "Acompanhar evolução";
+      if (score < 40) acao = "Vistoria técnica imediata";
+      else if (isOverdue) acao = "Solicitar replanejamento";
+      else if (criticalAlerts > 0) acao = "Analisar alertas e encaminhar";
+      else if (score < 60) acao = "Reforçar fiscalização";
+
+      return {
+        work: w,
+        score,
+        isOverdue,
+        daysOverdue,
+        criticalAlerts,
+        valor,
+        valorRisco,
+        motivo,
+        acao,
+      };
+    })
+    .filter((item) => item.score < 60 || item.isOverdue || item.criticalAlerts > 0)
+    .sort((a, b) => {
+      if (a.score < 40 && b.score >= 40) return -1;
+      if (b.score < 40 && a.score >= 40) return 1;
+      if (a.criticalAlerts > 0 && b.criticalAlerts === 0) return -1;
+      if (b.criticalAlerts > 0 && a.criticalAlerts === 0) return 1;
+      if (a.isOverdue && !b.isOverdue) return -1;
+      if (b.isOverdue && !a.isOverdue) return 1;
+      return a.score - b.score;
+    })
+    .slice(0, 10);
+
+  return scored.map((item, i) => ({
+    prioridade: i + 1,
+    obra_id: item.work.id,
+    obra: item.work.object_description?.trim() || `Obra #${item.work.id}`,
+    bairro: item.work.neighborhood ?? null,
+    secretaria: item.work.managing_unit ?? item.work.requesting_agency ?? null,
+    fornecedor: item.work.contractor_name ?? null,
+    score_argus: item.work.efficiency_score ?? null,
+    classificacao_risco: getRiskLevel(item.work.efficiency_score),
+    valor_contratado: item.valor,
+    valor_em_risco_estimado: item.valorRisco,
+    dias_atraso: item.daysOverdue,
+    alertas_ativos: (item.work.alerts ?? []).length,
+    motivo_principal: item.motivo,
+    acao_sugerida: item.acao,
+  }));
+}
+
+/** Computa a distribuição de risco a partir da lista bruta de obras. */
+function computeRiskDistributionFromWorks(works: WorkRead[]): RiskDistributionItem[] {
+  const buckets: Record<string, { min: number | null; max: number | null; count: number }> = {
+    Eficiente: { min: 80, max: 100, count: 0 },
+    Atenção: { min: 60, max: 79, count: 0 },
+    "Alto risco": { min: 40, max: 59, count: 0 },
+    Crítico: { min: 0, max: 39, count: 0 },
+    "Sem dados": { min: null, max: null, count: 0 },
+  };
+
+  for (const w of works) {
+    const level = getRiskLevel(w.efficiency_score);
+    buckets[level].count += 1;
+  }
+
+  return Object.entries(buckets).map(([label, { min, max, count }]) => ({
+    label,
+    min,
+    max,
+    total: count,
+  }));
+}
+
+/** Computa o ranking de bairros com maior risco a partir da lista bruta de obras. */
+function computeNeighborhoodsFromWorks(works: WorkRead[]): NeighborhoodRiskItem[] {
+  const grouped = new Map<string, WorkRead[]>();
+  for (const w of works) {
+    const bairro = w.neighborhood?.trim() || "Sem bairro definido";
+    if (!grouped.has(bairro)) grouped.set(bairro, []);
+    grouped.get(bairro)!.push(w);
+  }
+
+  return Array.from(grouped.entries())
+    .map(([bairro, ws]) => {
+      const scores = ws.map((w) => w.efficiency_score).filter((s): s is number => s != null);
+      const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+      const today = new Date();
+
+      return {
+        bairro,
+        obras: ws.length,
+        score_medio: avg,
+        obras_criticas: ws.filter((w) => (w.efficiency_score ?? 100) < 40).length,
+        obras_atrasadas: ws.filter(
+          (w) => !!w.due_at && !w.finished_at && new Date(w.due_at) < today,
+        ).length,
+        valor_total: ws.reduce((s, w) => s + (w.contract_value ?? 0), 0),
+        alertas: ws.reduce((s, w) => s + (w.alerts ?? []).length, 0),
+        classificacao: getRiskLevel(avg),
+        recomendacao:
+          avg < 40
+            ? "Vistoria técnica urgente necessária"
+            : avg < 60
+              ? "Monitoramento intensificado recomendado"
+              : avg < 80
+                ? "Acompanhamento regular com atenção"
+                : "Bairro com bom desempenho",
+      };
+    })
+    .sort((a, b) => a.score_medio - b.score_medio)
+    .slice(0, 10);
+}
+
+/** Computa o ranking de fornecedores com maior risco a partir da lista bruta de obras. */
+function computeSuppliersFromWorks(works: WorkRead[]): SupplierRankingItem[] {
+  const grouped = new Map<string, WorkRead[]>();
+  for (const w of works) {
+    const name = w.contractor_name?.trim();
+    if (!name) continue;
+    if (!grouped.has(name)) grouped.set(name, []);
+    grouped.get(name)!.push(w);
+  }
+
+  return Array.from(grouped.entries())
+    .map(([fornecedor, ws]) => {
+      const scores = ws.map((w) => w.efficiency_score).filter((s): s is number => s != null);
+      const avg = scores.length
+        ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+        : null;
+
+      return {
+        fornecedor,
+        cnpj: ws[0]?.contractor_document ?? null,
+        contratos: ws.length,
+        obras: ws.length,
+        valor_total: ws.reduce((s, w) => s + (w.contract_value ?? 0), 0),
+        valor_pago: ws.reduce((s, w) => s + (w.paid_value ?? w.settled_value ?? 0), 0),
+        score_medio: avg,
+        obras_criticas: ws.filter((w) => (w.efficiency_score ?? 100) < 40).length,
+        obras_atrasadas: ws.filter(
+          (w) => !!w.due_at && !w.finished_at && new Date(w.due_at) < new Date(),
+        ).length,
+        alertas_totais: ws.reduce((s, w) => s + (w.alerts ?? []).length, 0),
+        alertas_criticos: ws.reduce(
+          (s, w) =>
+            s +
+            (w.alerts ?? []).filter((a) => a.severity === "critical" || a.severity === "danger")
+              .length,
+          0,
+        ),
+        aditivo_medio_percentual: 0,
+        bairros_atuacao: [...new Set(ws.map((w) => w.neighborhood).filter(Boolean) as string[])],
+        classificacao: getRiskLevel(avg),
+        recomendacao:
+          avg != null && avg < 40
+            ? "Auditoria completa dos contratos"
+            : avg != null && avg < 60
+              ? "Revisão de desempenho recomendada"
+              : "Fornecedor dentro dos parâmetros",
+      };
+    })
+    .sort((a, b) => (a.score_medio ?? 100) - (b.score_medio ?? 100))
+    .slice(0, 10);
+}
+
+/* ========================================================================== */
+/* Gerador de recomendações executivas                                         */
+/* ========================================================================== */
+
+interface Recommendation {
+  text: string;
+  severity: "critical" | "warning" | "info";
+}
+
+function generateRecommendations(s: DashboardExecutiveSummary): Recommendation[] {
+  const recs: Recommendation[] = [];
+
+  if (s.obras_criticas > 0) {
+    recs.push({
+      text: `Priorizar vistoria técnica nas ${s.obras_criticas} obra(s) com score crítico (< 40).`,
+      severity: "critical",
+    });
+  }
+  if (s.obras_atrasadas > 0) {
+    recs.push({
+      text: `${s.obras_atrasadas} obra(s) atrasada(s) — solicitar replanejamento e revisão de cronograma.`,
+      severity: "critical",
+    });
+  }
+  if (s.alertas_criticos > 0) {
+    recs.push({
+      text: `${s.alertas_criticos} alerta(s) crítico(s) pendente(s) — encaminhar para equipe de controle interno.`,
+      severity: "critical",
+    });
+  }
+  if (s.obras_sem_geolocalizacao > 0) {
+    recs.push({
+      text: `Sanear cadastro territorial: ${s.obras_sem_geolocalizacao} obra(s) sem coordenadas geográficas.`,
+      severity: "warning",
+    });
+  }
+  if (s.contratos_com_aditivos_altos > 0) {
+    recs.push({
+      text: `Revisar justificativas de ${s.contratos_com_aditivos_altos} aditivo(s) contratuais acima de 25%.`,
+      severity: "warning",
+    });
+  }
+  if (s.data_quality_score < 70) {
+    recs.push({
+      text: `Qualidade dos dados em ${s.data_quality_score}/100 — melhorar completude antes de decisões automatizadas.`,
+      severity: "warning",
+    });
+  }
+  if (s.obras_alto_risco > 0) {
+    recs.push({
+      text: `${s.obras_alto_risco} obra(s) em alto risco — reforçar fiscalização e monitoramento.`,
+      severity: "warning",
+    });
+  }
+  if (recs.length === 0) {
+    recs.push({
+      text: "Nenhuma prioridade crítica no momento. Manter monitoramento regular do painel.",
+      severity: "info",
+    });
+  }
+
+  return recs;
+}
+
+/* ========================================================================== */
+/* Componente auxiliar: badge de classificação de risco                        */
+/* ========================================================================== */
+
+function RiskClassificationBadge({
+  label,
+  score,
+}: {
+  label: string;
+  score: number | null | undefined;
+}) {
+  const cls = getScoreClasses(score);
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${cls}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+/* ========================================================================== */
+/* Componente auxiliar: ícone de severidade para recomendações                 */
+/* ========================================================================== */
+
+function SeverityDot({ severity }: { severity: Recommendation["severity"] }) {
+  const colorMap = {
+    critical: "bg-destructive",
+    warning: "bg-orange-500",
+    info: "bg-primary",
+  };
+  return (
+    <span className={`mt-1.5 block h-2.5 w-2.5 shrink-0 rounded-full ${colorMap[severity]}`} />
+  );
+}
+
+/* ========================================================================== */
+/* Componente principal: DashboardPage                                         */
+/* ========================================================================== */
 
 function DashboardPage() {
   const [modalObraId, setModalObraId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  /* ── Queries com fallback isolado ─────────────────────────────────────── */
 
   const summary = useQuery({
-    queryKey: ["analytics", "summary", { municipio: "macae" }],
-    queryFn: () => analyticsService.summary({ municipio: "macae" }),
+    queryKey: ["dashboard", "executive-summary"],
+    queryFn: async (): Promise<DashboardExecutiveSummary> => {
+      try {
+        return await dashboardService.executiveSummary("Macae");
+      } catch {
+        const works = await worksService.listAll({ municipio: "macae" });
+        return computeSummaryFromWorks(works);
+      }
+    },
+    staleTime: 5 * 60 * 1000,
   });
-  const works = useQuery({
-    queryKey: ["works", { municipio: "macae" }],
-    queryFn: () => worksService.listAll({ municipio: "macae" }),
+
+  const priority = useQuery({
+    queryKey: ["dashboard", "priority-queue"],
+    queryFn: async (): Promise<PriorityQueueItem[]> => {
+      try {
+        const data = await dashboardService.priorityQueue("Macae", 10);
+        if (Array.isArray(data) && data.length > 0) return data;
+        const works = await worksService.listAll({ municipio: "macae" });
+        return computePriorityFromWorks(works);
+      } catch {
+        const works = await worksService.listAll({ municipio: "macae" });
+        return computePriorityFromWorks(works);
+      }
+    },
+    staleTime: 5 * 60 * 1000,
   });
-  const rankings = useQuery({
-    queryKey: ["analytics", "rankings", 5],
-    queryFn: () => analyticsService.rankings(5),
+
+  const riskDist = useQuery({
+    queryKey: ["dashboard", "risk-distribution"],
+    queryFn: async (): Promise<RiskDistributionItem[]> => {
+      try {
+        const data = await dashboardService.riskDistribution("Macae");
+        if (Array.isArray(data) && data.length > 0) return data;
+        const works = await worksService.listAll({ municipio: "macae" });
+        return computeRiskDistributionFromWorks(works);
+      } catch {
+        const works = await worksService.listAll({ municipio: "macae" });
+        return computeRiskDistributionFromWorks(works);
+      }
+    },
+    staleTime: 5 * 60 * 1000,
   });
+
+  const neighborhoods = useQuery({
+    queryKey: ["dashboard", "top-neighborhoods-risk"],
+    queryFn: async (): Promise<NeighborhoodRiskItem[]> => {
+      try {
+        const data = (await dashboardService.topNeighborhoodsRisk(
+          "Macae",
+          10,
+        )) as unknown as NeighborhoodRiskItem[];
+        if (Array.isArray(data) && data.length > 0) return data;
+        const works = await worksService.listAll({ municipio: "macae" });
+        return computeNeighborhoodsFromWorks(works);
+      } catch {
+        const works = await worksService.listAll({ municipio: "macae" });
+        return computeNeighborhoodsFromWorks(works);
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const suppliers = useQuery({
+    queryKey: ["dashboard", "top-suppliers-risk"],
+    queryFn: async (): Promise<SupplierRankingItem[]> => {
+      try {
+        const data = (await dashboardService.topSuppliersRisk(
+          "Macae",
+          10,
+        )) as unknown as SupplierRankingItem[];
+        if (Array.isArray(data) && data.length > 0) return data;
+        const works = await worksService.listAll({ municipio: "macae" });
+        return computeSuppliersFromWorks(works);
+      } catch {
+        const works = await worksService.listAll({ municipio: "macae" });
+        return computeSuppliersFromWorks(works);
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   const etl = useQuery<SyncStatus>({
     queryKey: ["etl", "sync-status"],
     queryFn: () => etlService.syncStatus(),
-  });
-  const trends = useQuery({
-    queryKey: ["analytics", "trends", { municipio: "macae" }],
-    queryFn: () => analyticsService.trends({ municipio: "macae" }),
+    staleTime: 60 * 1000,
   });
 
-  if (summary.isLoading || works.isLoading) {
-    return <LoadingState rows={8} />;
+  /* ── Dados derivados ──────────────────────────────────────────────────── */
+
+  const s = summary.data;
+  const recommendations = useMemo(() => (s ? generateRecommendations(s) : []), [s]);
+
+  /* ── Handlers ─────────────────────────────────────────────────────────── */
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["etl"] });
+  };
+
+  /* ── Estado de carregamento inicial ───────────────────────────────────── */
+
+  if (summary.isLoading) {
+    return <LoadingState message="Carregando painel executivo..." rows={8} />;
   }
-  if (summary.isError) {
-    return <ErrorState onRetry={() => summary.refetch()} />;
+
+  if (summary.isError && !summary.data) {
+    return (
+      <ErrorState
+        title="Erro ao carregar o painel executivo"
+        message="Não foi possível obter os dados do dashboard. Verifique se a API está disponível."
+        onRetry={() => summary.refetch()}
+      />
+    );
   }
-  const s = summary.data!;
-  const ws = works.data ?? [];
-  const valorTotal = ws.reduce((acc, w) => acc + (w.contract_value ?? 0), 0);
-  const valorPago = ws.reduce((acc, w) => acc + (w.paid_value ?? w.settled_value ?? 0), 0);
-  const valorSaldo = valorTotal - valorPago;
-  const pctExecutado = valorTotal > 0 ? Math.round((valorPago / valorTotal) * 100) : 0;
 
-  /* ── Dados derivados existentes ── */
-  const riscoBuckets = ["Baixo", "Atenção", "Alto", "Crítico"].map((label) => ({
-    label,
-    total: ws.filter((w) => getRiskLevel(w.efficiency_score) === label).length,
-  }));
+  /* Garantir que temos dados mínimos */
+  if (!s) return null;
 
-  const scoreDist = [
-    { faixa: "0–39", total: ws.filter((w) => (w.efficiency_score ?? 0) < 40).length },
-    {
-      faixa: "40–59",
-      total: ws.filter((w) => (w.efficiency_score ?? 0) >= 40 && (w.efficiency_score ?? 0) < 60)
-        .length,
-    },
-    {
-      faixa: "60–79",
-      total: ws.filter((w) => (w.efficiency_score ?? 0) >= 60 && (w.efficiency_score ?? 0) < 80)
-        .length,
-    },
-    { faixa: "80–100", total: ws.filter((w) => (w.efficiency_score ?? 0) >= 80).length },
-  ];
-
-  const contratadoTop = Object.entries(
-    ws.reduce<Record<string, number>>((acc, w) => {
-      const name = w.contractor_name?.trim();
-      if (!name) return acc;
-      acc[name] = (acc[name] ?? 0) + 1;
-      return acc;
-    }, {}),
-  )
-    .map(([name, total]) => ({ name, total }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 6);
-
-  /* ── Construtoras com score médio ── */
-  const contratadaComScore = Object.entries(
-    ws.reduce<Record<string, { total: number; scoreSum: number }>>((acc, w) => {
-      const name = w.contractor_name?.trim();
-      if (!name) return acc;
-      if (!acc[name]) acc[name] = { total: 0, scoreSum: 0 };
-      acc[name].total += 1;
-      acc[name].scoreSum += w.efficiency_score ?? 0;
-      return acc;
-    }, {}),
-  )
-    .map(([name, data]) => ({ name, total: data.total, avgScore: Math.round(data.scoreSum / data.total) }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 6);
-
-  /* ── Dados novos: Fila de Prioridade ── */
-  const obrasCriticas = ws
-    .filter((w) => (w.efficiency_score ?? 100) < 40)
-    .sort((a, b) => (a.efficiency_score ?? 0) - (b.efficiency_score ?? 0))
-    .slice(0, 5);
-
-  const hoje = new Date();
-  const obrasAtrasadas = ws
-    .filter((w) => {
-      if (!w.due_at || w.finished_at) return false;
-      return new Date(w.due_at) < hoje;
-    })
-    .sort((a, b) => new Date(a.due_at!).getTime() - new Date(b.due_at!).getTime())
-    .slice(0, 5);
-
-  const totalAlertasCriticos = ws.reduce((acc, w) => {
-    return acc + (w.alerts?.filter((a) => a.severity === "critical" || a.severity === "alert").length ?? 0);
-  }, 0);
-
-  /* ── Municípios com mais investimento ── */
-  const municipiosInvestimento = Object.entries(
-    ws.reduce<Record<string, number>>((acc, w) => {
-      const mun = w.municipio?.trim();
-      if (!mun) return acc;
-      acc[mun] = (acc[mun] ?? 0) + (w.contract_value ?? 0);
-      return acc;
-    }, {}),
-  )
-    .map(([nome, valor]) => ({ nome, valor }))
-    .sort((a, b) => b.valor - a.valor)
-    .slice(0, 5);
-
-  const etlData = etl.data ?? {};
+  /* ── Última atualização ───────────────────────────────────────────────── */
+  const lastUpdate = s.ultima_atualizacao ?? etl.data?.now ?? null;
 
   return (
-    <div>
+    <div className="space-y-6 pb-8">
+      {/* ═══════════════════════════════════════════════════════════════════
+          1. HEADER
+         ═══════════════════════════════════════════════════════════════════ */}
       <PageHeader
-        title="Painel ARGUS — Eficiência de Obras Públicas em Macaé-RJ"
-        description="Monitoramento de contratos, prazos, custos, alertas e risco de obras públicas com base no Índice ARGUS."
+        title="Painel Executivo — Obras Públicas de Macaé-RJ"
+        description="Monitoramento de risco, contratos, fornecedores, alertas e prioridades territoriais para apoiar decisões da gestão pública."
         actions={
-          <div className="hidden items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground md:flex">
-            <MapPin className="h-3.5 w-3.5 text-primary" />
-            Foco: <strong className="text-foreground">Macaé-RJ</strong> · Hackathon Duopen
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="gap-1.5 border-primary/30 text-primary">
+              <MapPin className="h-3 w-3" />
+              Macaé-RJ
+            </Badge>
+            <span className="hidden text-xs text-muted-foreground sm:inline">
+              Última atualização:{" "}
+              <strong className="text-foreground">{formatDateBR(lastUpdate)}</strong>
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={summary.isFetching}
+            >
+              <RefreshCw
+                className={`mr-1.5 h-3.5 w-3.5 ${summary.isFetching ? "animate-spin" : ""}`}
+              />
+              Atualizar
+            </Button>
+            <Button asChild variant="default" size="sm">
+              <Link to="/relatorios">
+                <FileText className="mr-1.5 h-3.5 w-3.5" />
+                Gerar relatório
+              </Link>
+            </Button>
           </div>
         }
       />
 
       {/* ═══════════════════════════════════════════════════════════════════
-          SEÇÃO 1: Visão Geral — 4 StatCards principais
+          2. CARDS PRINCIPAIS (12 KPIs)
          ═══════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatCard
           label="Obras monitoradas"
-          value={fmtNumber(s.total_works)}
+          value={fmtNumber(s.obras_monitoradas)}
           icon={HardHat}
           tone="primary"
-          helper="Contratos sob análise"
+          helper="Contratos sob análise ativa"
+        />
+        <StatCard
+          label="Valor total contratado"
+          value={fmtBRL(s.valor_total_contratado)}
+          icon={Wallet}
+          tone="accent"
+          helper="Somatório de todos os contratos"
+        />
+        <StatCard
+          label="Valor potencial em risco"
+          value={fmtBRL(s.valor_potencial_em_risco)}
+          icon={TrendingDown}
+          tone="danger"
+          helper="Obras com score abaixo de 60"
         />
         <StatCard
           label="Score ARGUS médio"
-          value={`${Math.round(s.average_efficiency_score)} / 100`}
+          value={fmtScore(s.score_medio)}
           icon={Gauge}
-          tone="success"
-          helper="Eficiência composta"
+          tone={s.score_medio >= 60 ? "success" : "warning"}
+          helper="Eficiência composta (0–100)"
+        />
+
+        <StatCard
+          label="Obras críticas"
+          value={fmtNumber(s.obras_criticas)}
+          icon={AlertTriangle}
+          tone="danger"
+          helper="Score ARGUS abaixo de 40"
+        />
+        <StatCard
+          label="Obras em alto risco"
+          value={fmtNumber(s.obras_alto_risco)}
+          icon={ShieldAlert}
+          tone="warning"
+          helper="Score ARGUS entre 40 e 59"
         />
         <StatCard
           label="Obras atrasadas"
-          value={fmtNumber(s.delayed_works)}
-          icon={Activity}
+          value={fmtNumber(s.obras_atrasadas)}
+          icon={Clock}
           tone="warning"
-          helper="Acima da tolerância de 90 dias"
+          helper="Prazo contratual expirado"
         />
         <StatCard
-          label="Valor contratado total"
-          value={fmtBRL(valorTotal)}
-          icon={Wallet}
-          tone="accent"
-          helper="Somatório dos contratos"
+          label="Alertas críticos"
+          value={fmtNumber(s.alertas_criticos)}
+          icon={Siren}
+          tone="danger"
+          helper="Alertas de severidade crítica"
         />
-      </div>
+
+        <StatCard
+          label="Obras sem geolocalização"
+          value={fmtNumber(s.obras_sem_geolocalizacao)}
+          icon={MapPinOff}
+          tone="warning"
+          helper="Sem coordenadas cadastradas"
+        />
+        <StatCard
+          label="Fornecedores monitorados"
+          value={fmtNumber(s.fornecedores_monitorados)}
+          icon={Users}
+          tone="primary"
+          helper="Contratados únicos ativos"
+        />
+        <StatCard
+          label="Bairros monitorados"
+          value={fmtNumber(s.bairros_monitorados)}
+          icon={MapIcon}
+          tone="primary"
+          helper="Territórios com obras ativas"
+        />
+        <StatCard
+          label="Qualidade dos dados"
+          value={fmtScore(s.data_quality_score)}
+          icon={BarChart3}
+          tone={s.data_quality_score >= 70 ? "success" : "warning"}
+          helper="Completude e consistência"
+        />
+      </section>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          SEÇÃO 8 (compacta): Barra de KPIs Secundários
+          3. O QUE O GESTOR DEVE OLHAR HOJE — FILA DE PRIORIDADE
          ═══════════════════════════════════════════════════════════════════ */}
-      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-card/60 px-5 py-2.5 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <Clock className="h-3.5 w-3.5" />
-          Última atualização: <strong className="text-foreground">{formatDateBR(etlData.now)}</strong>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Clock className="h-3.5 w-3.5" />
-          Próxima: <strong className="text-foreground">{formatDateBR(etlData.next_run_time)}</strong>
-        </span>
-        <span className="flex items-center gap-1.5">
-          Pipeline:{" "}
-          <strong className={etlData.scheduled ? "text-[color:var(--success)]" : "text-[color:var(--warning)]"}>
-            {etlData.scheduled ? "Ativo" : "Inativo"}
-          </strong>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Siren className="h-3.5 w-3.5 text-destructive" />
-          Alertas críticos: <strong className="text-destructive">{fmtNumber(totalAlertasCriticos)}</strong>
-        </span>
-        <span className="flex items-center gap-1.5">
-          Valor pago: <strong className="text-foreground">{fmtBRL(valorPago)}</strong>
-        </span>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          SEÇÃO 2: Fila de Prioridade
-         ═══════════════════════════════════════════════════════════════════ */}
-      <div className="mt-6 rounded-xl border-2 border-orange-500/40 bg-orange-500/5 p-5 shadow-sm">
-        <div className="mb-4 flex items-center gap-2">
-          <span className="text-lg">🚨</span>
-          <h2 className="text-base font-bold text-foreground">Ações Requeridas — Fila de Prioridade</h2>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {/* Obras Críticas */}
-          <div className="rounded-lg border border-destructive/30 bg-background p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-              <h3 className="text-sm font-semibold text-destructive">{"Obras Críticas (Score < 40)"}</h3>
-            </div>
-            {obrasCriticas.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhuma obra com score crítico.</p>
-            ) : (
-              <ul className="space-y-2">
-                {obrasCriticas.map((w) => (
-                  <li key={w.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-card p-2.5 text-sm">
-                    <div className="min-w-0 flex-1">
-                      <button
-                        type="button"
-                        onClick={() => setModalObraId(String(w.id))}
-                        className="block w-full truncate text-left font-medium text-foreground hover:text-primary hover:underline"
-                      >
-                        {w.object_description}
-                      </button>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{w.municipio}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <ScoreBadge score={w.efficiency_score ?? 0} showLabel={false} />
-                      <Link
-                        to="/obras/$id"
-                        params={{ id: String(w.id) }}
-                        className="text-muted-foreground hover:text-primary"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Link>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+      <Card className="border-2 border-orange-500/30">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🚨</span>
+            <CardTitle className="text-base">O que o gestor deve olhar hoje</CardTitle>
           </div>
-
-          {/* Obras Atrasadas */}
-          <div className="rounded-lg border border-orange-500/30 bg-background p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Clock className="h-4 w-4 text-orange-500" />
-              <h3 className="text-sm font-semibold text-orange-600">Obras Atrasadas</h3>
+          {priority.data && priority.data.length > 0 && (
+            <Badge variant="destructive" className="text-xs">
+              {priority.data.length} prioridade(s)
+            </Badge>
+          )}
+        </CardHeader>
+        <CardContent>
+          {priority.isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-12 animate-pulse rounded-md bg-muted/60" />
+              ))}
             </div>
-            {obrasAtrasadas.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhuma obra atrasada detectada.</p>
-            ) : (
-              <ul className="space-y-2">
-                {obrasAtrasadas.map((w) => {
-                  const diasAtraso = Math.floor(
-                    (hoje.getTime() - new Date(w.due_at!).getTime()) / (1000 * 60 * 60 * 24),
-                  );
-                  return (
-                    <li key={w.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-card p-2.5 text-sm">
-                      <div className="min-w-0 flex-1">
+          ) : priority.isError ? (
+            <ErrorState
+              title="Erro ao carregar prioridades"
+              message="Não foi possível obter a fila de prioridade."
+              onRetry={() => priority.refetch()}
+              showApiHint={false}
+            />
+          ) : !priority.data || priority.data.length === 0 ? (
+            <EmptyState
+              message="Nenhuma prioridade crítica encontrada para os filtros atuais."
+              hint="Todas as obras estão dentro dos parâmetros esperados."
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">#</TableHead>
+                    <TableHead className="min-w-[200px]">Obra</TableHead>
+                    <TableHead className="min-w-[120px]">Bairro</TableHead>
+                    <TableHead className="min-w-[140px]">Fornecedor</TableHead>
+                    <TableHead className="w-20 text-center">Score</TableHead>
+                    <TableHead className="w-24 text-center">Risco</TableHead>
+                    <TableHead className="min-w-[120px] text-right">Valor em risco</TableHead>
+                    <TableHead className="min-w-[180px]">Motivo principal</TableHead>
+                    <TableHead className="min-w-[160px]">Ação sugerida</TableHead>
+                    <TableHead className="w-16"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {priority.data.map((item) => (
+                    <TableRow
+                      key={item.obra_id}
+                      className={
+                        item.score_argus != null && item.score_argus < 40 ? "bg-destructive/5" : ""
+                      }
+                    >
+                      <TableCell>
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-bold">
+                          {item.prioridade}
+                        </span>
+                      </TableCell>
+                      <TableCell>
                         <button
                           type="button"
-                          onClick={() => setModalObraId(String(w.id))}
-                          className="block w-full truncate text-left font-medium text-foreground hover:text-primary hover:underline"
+                          onClick={() => setModalObraId(String(item.obra_id))}
+                          className="max-w-[200px] truncate text-left text-sm font-medium text-foreground hover:text-primary hover:underline"
                         >
-                          {w.object_description}
+                          {item.obra}
                         </button>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {w.municipio} · <span className="text-orange-500 font-medium">{diasAtraso} dias de atraso</span>
-                        </p>
-                      </div>
-                      <Link
-                        to="/obras/$id"
-                        params={{ id: String(w.id) }}
-                        className="shrink-0 text-muted-foreground hover:text-primary"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-
-          {/* Alertas Críticos */}
-          <div className="rounded-lg border border-yellow-500/30 bg-background p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Siren className="h-4 w-4 text-yellow-600" />
-              <h3 className="text-sm font-semibold text-yellow-700">Alertas Críticos</h3>
-            </div>
-            <div className="flex flex-col items-center justify-center gap-3 py-4">
-              <p className="text-4xl font-bold text-destructive tabular-nums">{fmtNumber(totalAlertasCriticos)}</p>
-              <p className="text-xs text-muted-foreground">alertas de severidade crítica ou alto</p>
-              <Button asChild variant="outline" size="sm">
-                <Link to="/alertas">
-                  Ver todos os alertas <ArrowRight className="ml-1 h-3.5 w-3.5" />
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          SEÇÃO 3: Execução Orçamentária
-         ═══════════════════════════════════════════════════════════════════ */}
-      <div className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm">
-        <div className="mb-4 flex items-center gap-2">
-          <Wallet className="h-4 w-4 text-primary" />
-          <h2 className="text-base font-semibold text-foreground">Execução Orçamentária</h2>
-        </div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground">Valor Total Contratado</p>
-            <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">{fmtBRL(valorTotal)}</p>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground">Valor Pago / Executado</p>
-            <p className="mt-1 text-2xl font-bold text-[color:var(--success)] tabular-nums">{fmtBRL(valorPago)}</p>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground">Saldo Restante</p>
-            <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">{fmtBRL(valorSaldo)}</p>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground">% Executado</p>
-            <p className="mt-1 text-2xl font-bold text-primary tabular-nums">{pctExecutado}%</p>
-          </div>
-        </div>
-        <div className="mt-4">
-          <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-            <span>0%</span>
-            <span className="font-medium text-foreground">{pctExecutado}% do orçamento contratado já foi executado</span>
-            <span>100%</span>
-          </div>
-          <Progress value={pctExecutado} className="h-4 rounded-full" />
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          SEÇÃO 4: Gráficos — Distribuição por Risco + Faixa de Score
-         ═══════════════════════════════════════════════════════════════════ */}
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground">
-              Distribuição por nível de risco ARGUS
-            </h3>
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/obras">
-                <ArrowRight className="ml-1 h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={riscoBuckets}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                <Tooltip />
-                <Bar dataKey="total" radius={[6, 6, 0, 0]}>
-                  {riscoBuckets.map((d) => (
-                    <Cell key={d.label} fill={RISK_COLORS[d.label]} />
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {item.bairro ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        <span className="max-w-[140px] truncate text-sm text-muted-foreground">
+                          {item.fornecedor ?? "—"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <ScoreBadge score={item.score_argus} showLabel={false} />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <RiskClassificationBadge
+                          label={item.classificacao_risco}
+                          score={item.score_argus}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-medium tabular-nums">
+                        {fmtBRL(item.valor_em_risco_estimado)}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground">
+                          {item.motivo_principal}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs font-medium text-foreground">
+                          {item.acao_sugerida}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Button asChild variant="ghost" size="sm">
+                          <Link to="/obras/$id" params={{ id: String(item.obra_id) }}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-semibold text-foreground">Faixa de score ARGUS</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={scoreDist}
-                  dataKey="total"
-                  nameKey="faixa"
-                  innerRadius={45}
-                  outerRadius={85}
-                  paddingAngle={2}
-                >
-                  {scoreDist.map((d) => (
-                    <Cell key={d.faixa} fill={getScoreHex(parseInt(d.faixa))} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 10 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          SEÇÃO 5: Análise de Performance — 3 cards
+          4. RISCO POR CLASSIFICAÇÃO — GRÁFICO
          ═══════════════════════════════════════════════════════════════════ */}
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Obras mais críticas */}
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-            <TrendingDown className="h-4 w-4 text-destructive" /> Obras mais críticas
-          </div>
-          {!rankings.data?.worst?.length ? (
-            <p className="text-sm text-muted-foreground">Sem ranking disponível.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {rankings.data.worst.slice(0, 5).map((w) => {
-                const fullWork = ws.find((fw) => fw.id === w.id);
-                return (
-                  <li key={w.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                    <Link
-                      to="/obras/$id"
-                      params={{ id: String(w.id) }}
-                      className="min-w-0 flex-1 truncate font-medium text-foreground hover:text-primary"
-                    >
-                      {w.object_description}
-                    </Link>
-                    <div className="flex items-center gap-2">
-                      <PredictiveRiskIndicator
-                        delayProbability={fullWork?.risk_delay_probability}
-                        costProbability={fullWork?.risk_cost_probability}
-                        reworkProbability={fullWork?.risk_rework_probability}
-                      />
-                      <ScoreBadge score={w.efficiency_score ?? 0} showLabel={false} />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-
-        {/* Construtoras mais recorrentes + score médio */}
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Trophy className="h-4 w-4 text-[color:var(--success)]" /> Construtoras mais recorrentes
-          </div>
-          {contratadaComScore.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Dados insuficientes.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {contratadaComScore.map((c, i) => (
-                <li key={c.name} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
-                      {i + 1}
-                    </span>
-                    <span className="truncate font-medium text-foreground">{c.name}</span>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <ScoreBadge score={c.avgScore} showLabel={false} />
-                    <span className="text-xs text-muted-foreground">{c.total} contratos</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Municípios com mais investimento */}
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Building2 className="h-4 w-4 text-accent" /> Municípios com mais investimento
-          </div>
-          {municipiosInvestimento.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Dados insuficientes.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {municipiosInvestimento.map((m, i) => (
-                <li key={m.nome} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent/15 text-xs font-semibold text-accent">
-                      {i + 1}
-                    </span>
-                    <span className="truncate font-medium text-foreground">{m.nome}</span>
-                  </div>
-                  <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">{fmtBRL(m.valor)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          SEÇÃO 6: Composição do Índice ARGUS
-         ═══════════════════════════════════════════════════════════════════ */}
-      <div className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">Composição do Índice ARGUS</h3>
+            <BarChart3 className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base">Risco por classificação</CardTitle>
           </div>
           <Button asChild variant="ghost" size="sm">
-            <Link to="/metodologia">
-              Ver metodologia completa <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            <Link to="/obras">
+              Ver todas as obras <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Link>
           </Button>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {ARGUS_PILLARS.map((p) => (
-            <div key={p.key} className="rounded-lg border border-border bg-background/50 p-3">
-              <p className="text-xs font-medium text-muted-foreground">{p.label}</p>
-              <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">
-                {Math.round(p.weight * 100)}%
-              </p>
-              <Progress value={p.weight * 100} className="mt-2 h-1.5" />
+        </CardHeader>
+        <CardContent>
+          {riskDist.isLoading ? (
+            <div className="h-72 animate-pulse rounded-md bg-muted/60" />
+          ) : riskDist.isError ? (
+            <ErrorState
+              title="Erro ao carregar distribuição de risco"
+              message="Não foi possível obter os dados de distribuição."
+              onRetry={() => riskDist.refetch()}
+              showApiHint={false}
+            />
+          ) : !riskDist.data || riskDist.data.every((d) => d.total === 0) ? (
+            <EmptyState message="Sem dados de distribuição de risco disponíveis." />
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={riskDist.data}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                  <XAxis dataKey="label" tick={{ fontSize: 12 }} interval={0} />
+                  <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                  <Tooltip
+                    formatter={(value: number) => [`${value} obra(s)`, "Quantidade"]}
+                    contentStyle={{ fontSize: 12 }}
+                  />
+                  <Bar dataKey="total" radius={[6, 6, 0, 0]} name="Obras">
+                    {riskDist.data.map((d) => (
+                      <Cell
+                        key={d.label}
+                        fill={RISK_CHART_COLORS[d.label] ?? RISK_CHART_COLORS["Sem dados"]}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-          ))}
-        </div>
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          SEÇÃO 7: Tendência Temporal
+          5. BAIRROS QUE EXIGEM ATENÇÃO
          ═══════════════════════════════════════════════════════════════════ */}
-      <div className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-          <TrendingUp className="h-4 w-4 text-primary" />
-          Evolução do Score ARGUS ao longo do tempo
-        </div>
-        {!trends.data?.length ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">
-            Sem dados de tendência disponíveis.
-          </p>
-        ) : (
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trends.data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 11 }}
-                  tickFormatter={(v: string) => {
-                    const [y, m] = v.split("-");
-                    const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-                    return `${meses[Number(m) - 1]}/${y.slice(2)}`;
-                  }}
-                />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-                <Tooltip
-                  labelFormatter={(v: string) => {
-                    const [y, m] = v.split("-");
-                    const meses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-                    return `${meses[Number(m) - 1]} de ${y}`;
-                  }}
-                  formatter={(value: number, name: string) => {
-                    const labels: Record<string, string> = {
-                      avg_score: "Score médio",
-                      count: "Obras",
-                      total_value: "Valor total",
-                    };
-                    if (name === "total_value") return [`R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, labels[name] ?? name];
-                    return [value, labels[name] ?? name];
-                  }}
-                  contentStyle={{ fontSize: 12 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="avg_score"
-                  stroke="#287BBE"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: "#287BBE" }}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div className="flex items-center gap-2">
+            <MapIcon className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base">Bairros que exigem atenção</CardTitle>
           </div>
-        )}
-      </div>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/macae">
+              Análise Macaé-RJ <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {neighborhoods.isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-10 animate-pulse rounded-md bg-muted/60" />
+              ))}
+            </div>
+          ) : neighborhoods.isError ? (
+            <ErrorState
+              title="Erro ao carregar dados de bairros"
+              message="Não foi possível obter o ranking de bairros."
+              onRetry={() => neighborhoods.refetch()}
+              showApiHint={false}
+            />
+          ) : !neighborhoods.data || neighborhoods.data.length === 0 ? (
+            <EmptyState message="Sem dados de bairros disponíveis." />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[150px]">Bairro</TableHead>
+                    <TableHead className="w-16 text-center">Obras</TableHead>
+                    <TableHead className="w-20 text-center">Score médio</TableHead>
+                    <TableHead className="w-20 text-center">Críticas</TableHead>
+                    <TableHead className="w-20 text-center">Atrasadas</TableHead>
+                    <TableHead className="min-w-[120px] text-right">Valor total</TableHead>
+                    <TableHead className="min-w-[200px]">Recomendação</TableHead>
+                    <TableHead className="w-16"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {neighborhoods.data.map((n) => (
+                    <TableRow
+                      key={n.bairro}
+                      className={n.obras_criticas > 0 ? "bg-destructive/5" : ""}
+                    >
+                      <TableCell className="font-medium">{n.bairro}</TableCell>
+                      <TableCell className="text-center tabular-nums">{n.obras}</TableCell>
+                      <TableCell className="text-center">
+                        <ScoreBadge score={n.score_medio} showLabel={false} />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {n.obras_criticas > 0 ? (
+                          <span className="font-semibold text-destructive">{n.obras_criticas}</span>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {n.obras_atrasadas > 0 ? (
+                          <span className="font-semibold text-orange-600">{n.obras_atrasadas}</span>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums">
+                        {fmtBRL(n.valor_total)}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground">{n.recomendacao}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Button asChild variant="ghost" size="sm">
+                          <Link to="/macae">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          6. FORNECEDORES QUE MERECEM REVISÃO
+         ═══════════════════════════════════════════════════════════════════ */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base">Fornecedores que merecem revisão</CardTitle>
+          </div>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/fornecedores">
+              Ver todos <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {suppliers.isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-10 animate-pulse rounded-md bg-muted/60" />
+              ))}
+            </div>
+          ) : suppliers.isError ? (
+            <ErrorState
+              title="Erro ao carregar dados de fornecedores"
+              message="Não foi possível obter o ranking de fornecedores."
+              onRetry={() => suppliers.refetch()}
+              showApiHint={false}
+            />
+          ) : !suppliers.data || suppliers.data.length === 0 ? (
+            <EmptyState message="Sem dados de fornecedores disponíveis." />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[200px]">Fornecedor</TableHead>
+                    <TableHead className="w-20 text-center">Contratos</TableHead>
+                    <TableHead className="min-w-[120px] text-right">Valor total</TableHead>
+                    <TableHead className="w-20 text-center">Score médio</TableHead>
+                    <TableHead className="w-20 text-center">Críticas</TableHead>
+                    <TableHead className="w-16 text-center">Alertas</TableHead>
+                    <TableHead className="min-w-[200px]">Recomendação</TableHead>
+                    <TableHead className="w-16"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {suppliers.data.map((f) => (
+                    <TableRow
+                      key={f.fornecedor}
+                      className={f.obras_criticas > 0 ? "bg-destructive/5" : ""}
+                    >
+                      <TableCell>
+                        <span className="max-w-[200px] truncate font-medium">{f.fornecedor}</span>
+                      </TableCell>
+                      <TableCell className="text-center tabular-nums">{f.contratos}</TableCell>
+                      <TableCell className="text-right text-sm tabular-nums">
+                        {fmtBRL(f.valor_total)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <ScoreBadge score={f.score_medio} showLabel={false} />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {f.obras_criticas > 0 ? (
+                          <span className="font-semibold text-destructive">{f.obras_criticas}</span>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {f.alertas_totais > 0 ? (
+                          <span className="font-semibold text-orange-600">{f.alertas_totais}</span>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground">{f.recomendacao}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Button asChild variant="ghost" size="sm">
+                          <Link to="/fornecedores">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          7. RECOMENDAÇÕES EXECUTIVAS
+         ═══════════════════════════════════════════════════════════════════ */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Lightbulb className="h-4 w-4 text-yellow-500" />
+            <CardTitle className="text-base">Recomendações executivas</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-3">
+            {recommendations.map((rec, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-3 rounded-lg border border-border bg-card/50 p-3 transition hover:bg-muted/30"
+              >
+                <SeverityDot severity={rec.severity} />
+                <span className="text-sm text-foreground">{rec.text}</span>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
 
       {/* ── Modal de detalhes da obra ── */}
       <ObraDetailModal
         obraId={modalObraId}
         open={!!modalObraId}
-        onOpenChange={(open) => { if (!open) setModalObraId(null); }}
+        onOpenChange={(open) => {
+          if (!open) setModalObraId(null);
+        }}
       />
     </div>
   );

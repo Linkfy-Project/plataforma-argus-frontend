@@ -42,7 +42,10 @@ export function Topbar() {
             <Menu className="h-5 w-5" />
           </button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-72 border-0 bg-[color:var(--sidebar-deep)] p-0 text-white">
+        <SheetContent
+          side="left"
+          className="w-72 border-0 bg-[color:var(--sidebar-deep)] p-0 text-white"
+        >
           <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
           <SidebarNav onNavigate={() => setOpenMobile(false)} />
         </SheetContent>

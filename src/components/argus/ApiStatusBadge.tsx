@@ -14,20 +14,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Wifi, WifiOff, Loader2 } from "lucide-react";
 import { healthService } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type Status = "online" | "offline" | "loading" | "cold-start";
 
-function resolveStatus(
-  isLoading: boolean,
-  isError: boolean,
-  data: unknown,
-): Status {
+function resolveStatus(isLoading: boolean, isError: boolean, data: unknown): Status {
   if (isLoading) return "loading";
   if (isError) return "offline";
   if (data && typeof data === "object" && "status" in data) {
@@ -68,12 +59,7 @@ const STATUS_CONFIG: Record<
 };
 
 export function ApiStatusBadge() {
-  const {
-    data,
-    isLoading,
-    isError,
-    dataUpdatedAt,
-  } = useQuery({
+  const { data, isLoading, isError, dataUpdatedAt } = useQuery({
     queryKey: ["api-health"],
     queryFn: () => healthService.health(),
     refetchInterval: 30_000, // Re-verifica a cada 30s
@@ -105,12 +91,7 @@ export function ApiStatusBadge() {
             )}
             aria-label={config.label}
           >
-            <Icon
-              className={cn(
-                "h-3.5 w-3.5",
-                config.pulse && "animate-spin",
-              )}
-            />
+            <Icon className={cn("h-3.5 w-3.5", config.pulse && "animate-spin")} />
             <span className="hidden sm:inline">{config.label}</span>
           </button>
         </TooltipTrigger>

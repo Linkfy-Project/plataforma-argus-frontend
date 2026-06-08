@@ -18,7 +18,9 @@ function LoginPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[color:var(--sidebar-accent-hl)]/15">
             <Shield className="h-6 w-6 text-[color:var(--sidebar-accent-hl)]" />
           </div>
-          <h1 className="text-3xl font-bold tracking-widest text-[color:var(--sidebar-accent-hl)]">ARGUS</h1>
+          <h1 className="text-3xl font-bold tracking-widest text-[color:var(--sidebar-accent-hl)]">
+            ARGUS
+          </h1>
           <p className="text-sm text-white/60">Inteligência para Obras Públicas</p>
         </div>
         <form
@@ -29,20 +31,34 @@ function LoginPage() {
           }}
         >
           <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-white/80">E-mail</Label>
-            <Input id="email" type="email" placeholder="seu.email@municipio.rj.gov.br"
-              className="border-white/10 bg-white/5 text-white placeholder:text-white/40" />
+            <Label htmlFor="email" className="text-white/80">
+              E-mail
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="seu.email@municipio.rj.gov.br"
+              className="border-white/10 bg-white/5 text-white placeholder:text-white/40"
+            />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="senha" className="text-white/80">Senha</Label>
-            <Input id="senha" type="password" placeholder="••••••••"
-              className="border-white/10 bg-white/5 text-white placeholder:text-white/40" />
+            <Label htmlFor="senha" className="text-white/80">
+              Senha
+            </Label>
+            <Input
+              id="senha"
+              type="password"
+              placeholder="••••••••"
+              className="border-white/10 bg-white/5 text-white placeholder:text-white/40"
+            />
           </div>
-          <Button type="submit" className="w-full bg-primary hover:bg-primary/90">Entrar</Button>
+          <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
+            Entrar
+          </Button>
           <div className="text-center">
-            <a href="#" className="text-xs text-[color:var(--sidebar-accent-hl)] hover:underline">
-              Esqueci minha senha
-            </a>
+            <span className="text-xs text-muted-foreground cursor-not-allowed opacity-60">
+              Esqueci minha senha (em desenvolvimento)
+            </span>
           </div>
         </form>
       </div>

@@ -50,13 +50,19 @@ function getStatusColor(status?: string | null): { bg: string; text: string } {
 
 function buildPopupContent(w: WorkRead): string {
   const score = w.efficiency_score != null ? Math.round(w.efficiency_score) : "—";
-  const riskDelay = w.risk_delay_probability != null ? `${Math.round(w.risk_delay_probability * 100)}%` : "—";
-  const riskCost = w.risk_cost_probability != null ? `${Math.round(w.risk_cost_probability * 100)}%` : "—";
-  const riskRework = w.risk_rework_probability != null ? `${Math.round(w.risk_rework_probability * 100)}%` : "—";
+  const riskDelay =
+    w.risk_delay_probability != null ? `${Math.round(w.risk_delay_probability * 100)}%` : "—";
+  const riskCost =
+    w.risk_cost_probability != null ? `${Math.round(w.risk_cost_probability * 100)}%` : "—";
+  const riskRework =
+    w.risk_rework_probability != null ? `${Math.round(w.risk_rework_probability * 100)}%` : "—";
   const value = w.contract_value != null ? fmtBRL(w.contract_value) : "—";
   const statusStyle = getStatusColor(w.status);
   const alertCount = w.alerts?.length ?? 0;
-  const overlap = w.territorial_overlap_ratio != null ? `${Math.round(w.territorial_overlap_ratio * 100)}%` : null;
+  const overlap =
+    w.territorial_overlap_ratio != null
+      ? `${Math.round(w.territorial_overlap_ratio * 100)}%`
+      : null;
 
   return `
     <div style="min-width:240px;max-width:300px;font-family:system-ui,sans-serif;">
@@ -146,7 +152,7 @@ export function ArgusMap({ works, layers = [], className, height = "500px" }: Ar
         onEachFeature: (feature, layer) => {
           const name = feature.properties?.name;
           const code = feature.properties?.code;
-          if (name || code && name !== "nan") {
+          if (name || (code && name !== "nan")) {
             layer.bindTooltip(`${name || ""}${name && code ? " · " : ""}${code || ""}`, {
               sticky: true,
               className: "argus-layer-tooltip",

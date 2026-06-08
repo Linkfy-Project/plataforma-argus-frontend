@@ -74,7 +74,9 @@ async function fetchWorks(root: string, params: URLSearchParams, init: RequestIn
 }
 
 function summarize(works: BackendWork[]) {
-  const scores = works.map((w) => w.efficiency_score).filter((score): score is number => score != null);
+  const scores = works
+    .map((w) => w.efficiency_score)
+    .filter((score): score is number => score != null);
   const now = new Date();
   return {
     total_works: works.length,
@@ -97,7 +99,10 @@ function summarize(works: BackendWork[]) {
 }
 
 function trends(works: BackendWork[]) {
-  const groups = new Map<string, { scoreSum: number; scoreCount: number; count: number; totalValue: number }>();
+  const groups = new Map<
+    string,
+    { scoreSum: number; scoreCount: number; count: number; totalValue: number }
+  >();
   for (const work of works) {
     const month = (work.signed_at ?? work.created_at ?? "").slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(month)) continue;
@@ -154,8 +159,7 @@ async function forward(request: Request, splat: string | undefined) {
   const controller = new AbortController();
   // ETL endpoints (sync, recompute, retrain) podem demorar bem mais que
   // requisições normais; damos folga para evitar 502 por timeout do proxy.
-  const isLongRunning =
-    /\/etl\/|\/recompute|\/ml\/retrain/i.test(path) || request.method !== "GET";
+  const isLongRunning = /\/etl\/|\/recompute|\/ml\/retrain/i.test(path) || request.method !== "GET";
   const timeoutMs = isLongRunning ? 270_000 : 95_000;
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   init.signal = controller.signal;
@@ -196,10 +200,10 @@ async function forward(request: Request, splat: string | undefined) {
     return new Response(upstream.body, { status: upstream.status, headers });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Upstream error";
-    return new Response(
-      JSON.stringify({ error: "Argus backend indisponível", detail: msg }),
-      { status: 502, headers: { "content-type": "application/json", ...CORS } },
-    );
+    return new Response(JSON.stringify({ error: "Argus backend indisponível", detail: msg }), {
+      status: 502,
+      headers: { "content-type": "application/json", ...CORS },
+    });
   } finally {
     clearTimeout(timeout);
   }

@@ -1,13 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Wallet,
-  HardHat,
-  AlertTriangle,
-  Trophy,
-  MapPin,
-  CircleDollarSign,
-} from "lucide-react";
+import { Wallet, HardHat, AlertTriangle, Trophy, MapPin, CircleDollarSign } from "lucide-react";
 import { worksService, dashboardService } from "@/lib/api";
 import { LoadingState, ErrorState } from "@/components/argus/EmptyState";
 import { fmtBRL, fmtNumber } from "@/lib/format";
@@ -74,16 +67,13 @@ function CidadaoPainel() {
 
   // Ranking de bairros/municípios com mais investimento
   const rankingBairros = Object.entries(
-    allWorks.reduce<Record<string, { obras: number; valor: number }>>(
-      (acc, w: WorkRead) => {
-        const key = w.neighborhood || w.municipio || "Não informado";
-        if (!acc[key]) acc[key] = { obras: 0, valor: 0 };
-        acc[key].obras += 1;
-        acc[key].valor += w.contract_value ?? 0;
-        return acc;
-      },
-      {},
-    ),
+    allWorks.reduce<Record<string, { obras: number; valor: number }>>((acc, w: WorkRead) => {
+      const key = w.neighborhood || w.municipio || "Não informado";
+      if (!acc[key]) acc[key] = { obras: 0, valor: 0 };
+      acc[key].obras += 1;
+      acc[key].valor += w.contract_value ?? 0;
+      return acc;
+    }, {}),
   )
     .map(([nome, data]) => ({ nome, ...data }))
     .sort((a, b) => b.valor - a.valor)
@@ -135,7 +125,7 @@ function CidadaoPainel() {
           </p>
         </div>
 
-        {/* Obras atrasadas */ }
+        {/* Obras atrasadas */}
         <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-gradient-to-br from-red-500/5 to-red-500/10 p-8 text-center shadow-sm">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 text-red-600">
             <AlertTriangle className="h-8 w-8" />
@@ -143,9 +133,7 @@ function CidadaoPainel() {
           <p className="mt-4 text-sm font-medium text-muted-foreground uppercase tracking-wider">
             Obras Atrasadas
           </p>
-          <p className="mt-2 text-3xl font-bold text-red-600 md:text-4xl">
-            {fmtNumber(atrasadas)}
-          </p>
+          <p className="mt-2 text-3xl font-bold text-red-600 md:text-4xl">{fmtNumber(atrasadas)}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Obras que não cumpriram o prazo previsto — controle social necessário
           </p>
@@ -165,9 +153,7 @@ function CidadaoPainel() {
         </p>
 
         {rankingBairros.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Dados insuficientes para gerar o ranking.
-          </p>
+          <p className="text-sm text-muted-foreground">Dados insuficientes para gerar o ranking.</p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-border shadow-sm">
             <table className="w-full text-sm">
@@ -198,10 +184,7 @@ function CidadaoPainel() {
               </thead>
               <tbody className="divide-y divide-border">
                 {rankingBairros.map((item, index) => (
-                  <tr
-                    key={item.nome}
-                    className="transition-colors hover:bg-muted/20"
-                  >
+                  <tr key={item.nome} className="transition-colors hover:bg-muted/20">
                     <td className="px-4 py-3 text-center">
                       <span
                         className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
@@ -217,9 +200,7 @@ function CidadaoPainel() {
                         {index + 1}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-medium text-foreground">
-                      {item.nome}
-                    </td>
+                    <td className="px-4 py-3 font-medium text-foreground">{item.nome}</td>
                     <td className="px-4 py-3 text-center tabular-nums text-muted-foreground">
                       {item.obras}
                     </td>
@@ -236,8 +217,8 @@ function CidadaoPainel() {
 
       {/* Nota */}
       <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4 text-center text-xs text-muted-foreground">
-        Dados atualizados automaticamente com base nos registros do TCE-RJ e fontes oficiais.
-        Os valores podem sofrer ajustes conforme novos contratos são registrados.
+        Dados atualizados automaticamente com base nos registros do TCE-RJ e fontes oficiais. Os
+        valores podem sofrer ajustes conforme novos contratos são registrados.
       </div>
     </div>
   );

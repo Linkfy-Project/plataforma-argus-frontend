@@ -15,6 +15,7 @@
  */
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import type { CellHookData } from "jspdf-autotable";
 import type { WorkRead, AlertRead } from "@/types";
 import { getRiskLevel } from "@/lib/score";
 
@@ -71,8 +72,10 @@ function normalizeStatus(work: WorkRead): string {
   if (raw.includes("conclu") || raw.includes("finaliz")) return "Concluída";
   if (raw.includes("atras") || raw.includes("vencid")) return "Atrasada";
   if (raw.includes("paralis") || raw.includes("suspens")) return "Paralisada";
-  if (raw.includes("planejad") || raw.includes("licitaç") || raw.includes("licita")) return "Planejada";
-  if (raw.includes("andamento") || raw.includes("execuç") || raw.includes("execu")) return "Em andamento";
+  if (raw.includes("planejad") || raw.includes("licitaç") || raw.includes("licita"))
+    return "Planejada";
+  if (raw.includes("andamento") || raw.includes("execuç") || raw.includes("execu"))
+    return "Em andamento";
   // Fallback: se tem finished_at é concluída, senão em andamento
   if (work.finished_at) return "Concluída";
   return "Em andamento";
@@ -183,16 +186,13 @@ function addSummarySection(doc: jsPDF, works: WorkRead[], y: number): number {
   y = addSectionTitle(doc, "1. Resumo Executivo", y);
 
   const totalWorks = works.length;
-  const avgScore =
-    works.reduce((s, w) => s + (w.efficiency_score ?? 0), 0) / (totalWorks || 1);
+  const avgScore = works.reduce((s, w) => s + (w.efficiency_score ?? 0), 0) / (totalWorks || 1);
   const critical = works.filter((w) => (w.efficiency_score ?? 100) < 40).length;
   const delayed = works.filter(isDelayed).length;
   const totalContractValue = works.reduce((s, w) => s + (w.contract_value ?? 0), 0);
   const totalPaidValue = works.reduce((s, w) => s + (w.paid_value ?? 0), 0);
   const avgExecPct =
-    totalContractValue > 0
-      ? Math.round((totalPaidValue / totalContractValue) * 100)
-      : 0;
+    totalContractValue > 0 ? Math.round((totalPaidValue / totalContractValue) * 100) : 0;
   const totalAlerts = works.reduce((s, w) => s + (w.alerts?.length ?? 0), 0);
 
   // Cards de resumo — 2 linhas de 4
@@ -202,16 +202,36 @@ function addSummarySection(doc: jsPDF, works: WorkRead[], y: number): number {
 
   const row1 = [
     { label: "Obras Monitoradas", value: String(totalWorks), color: BRAND_COLOR },
-    { label: "Score Médio ARGUS", value: `${Math.round(avgScore)}/100`, color: getRiskColor(avgScore) },
+    {
+      label: "Score Médio ARGUS",
+      value: `${Math.round(avgScore)}/100`,
+      color: getRiskColor(avgScore),
+    },
     { label: "Obras Críticas", value: String(critical), color: DANGER_COLOR },
     { label: "Obras Atrasadas", value: String(delayed), color: WARNING_COLOR },
   ];
 
   const row2 = [
-    { label: "Valor Total Contratado", value: formatCompact(totalContractValue), color: BRAND_COLOR },
-    { label: "Valor Total Pago/Executado", value: formatCompact(totalPaidValue), color: ACCENT_COLOR },
-    { label: "% Médio Execução Financeira", value: `${avgExecPct}%`, color: avgExecPct < 20 ? DANGER_COLOR : avgExecPct < 50 ? WARNING_COLOR : SUCCESS_COLOR },
-    { label: "Total de Alertas Ativos", value: String(totalAlerts), color: totalAlerts > 0 ? ORANGE_COLOR : SUCCESS_COLOR },
+    {
+      label: "Valor Total Contratado",
+      value: formatCompact(totalContractValue),
+      color: BRAND_COLOR,
+    },
+    {
+      label: "Valor Total Pago/Executado",
+      value: formatCompact(totalPaidValue),
+      color: ACCENT_COLOR,
+    },
+    {
+      label: "% Médio Execução Financeira",
+      value: `${avgExecPct}%`,
+      color: avgExecPct < 20 ? DANGER_COLOR : avgExecPct < 50 ? WARNING_COLOR : SUCCESS_COLOR,
+    },
+    {
+      label: "Total de Alertas Ativos",
+      value: String(totalAlerts),
+      color: totalAlerts > 0 ? ORANGE_COLOR : SUCCESS_COLOR,
+    },
   ];
 
   const drawCardRow = (cards: typeof row1, rowY: number) => {
@@ -332,7 +352,12 @@ function addStatusDistribution(doc: jsPDF, works: WorkRead[], y: number): number
   const municipalityMap = new Map<string, MunicipalitySummary>();
   works.forEach((w) => {
     const mun = w.municipio || "Não informado";
-    const existing = municipalityMap.get(mun) ?? { name: mun, count: 0, totalValue: 0, avgScore: 0 };
+    const existing = municipalityMap.get(mun) ?? {
+      name: mun,
+      count: 0,
+      totalValue: 0,
+      avgScore: 0,
+    };
     existing.count += 1;
     existing.totalValue += w.contract_value ?? 0;
     existing.avgScore += w.efficiency_score ?? 0;
@@ -499,7 +524,12 @@ function addRiskDistribution(doc: jsPDF, works: WorkRead[], y: number): number {
   y = addSectionTitle(doc, "4. Distribuição de Risco", y);
 
   const labels: string[] = ["Baixo", "Atenção", "Alto", "Crítico"];
-  const colors: [number, number, number][] = [SUCCESS_COLOR, WARNING_COLOR, ORANGE_COLOR, DANGER_COLOR];
+  const colors: [number, number, number][] = [
+    SUCCESS_COLOR,
+    WARNING_COLOR,
+    ORANGE_COLOR,
+    DANGER_COLOR,
+  ];
   const counts = labels.map(
     (label) => works.filter((w) => getRiskLevel(w.efficiency_score) === label).length,
   );
@@ -562,7 +592,7 @@ function addRiskDistribution(doc: jsPDF, works: WorkRead[], y: number): number {
       2: { halign: "center" },
       3: { halign: "right" },
     },
-    didParseCell: (data: any) => {
+    didParseCell: (data: CellHookData) => {
       if (data.column.index === 0 && data.section === "body") {
         const risk = data.cell.raw as string;
         if (risk === "Crítico") data.cell.styles.textColor = DANGER_COLOR;
@@ -603,11 +633,7 @@ function addAlertAnalysis(doc: jsPDF, works: WorkRead[], y: number): number {
   doc.setTextColor(...TEXT_COLOR);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.text(
-    `Total de alertas ativos: ${totalAlerts}`,
-    15,
-    y,
-  );
+  doc.text(`Total de alertas ativos: ${totalAlerts}`, 15, y);
   y += 8;
 
   // Tabela de severidade
@@ -636,7 +662,7 @@ function addAlertAnalysis(doc: jsPDF, works: WorkRead[], y: number): number {
         1: { halign: "center" },
         2: { halign: "center" },
       },
-      didParseCell: (data: any) => {
+      didParseCell: (data: CellHookData) => {
         if (data.column.index === 0 && data.section === "body") {
           const sev = data.cell.raw as string;
           if (sev === "Crítico") data.cell.styles.textColor = DANGER_COLOR;
@@ -694,7 +720,7 @@ function addAlertAnalysis(doc: jsPDF, works: WorkRead[], y: number): number {
       0: { cellWidth: 20, halign: "center" },
       3: { cellWidth: 22, halign: "center" },
     },
-    didParseCell: (data: any) => {
+    didParseCell: (data: CellHookData) => {
       if (data.column.index === 0 && data.section === "body") {
         const sev = data.cell.raw as string;
         if (sev === "Crítico") data.cell.styles.textColor = DANGER_COLOR;
@@ -762,7 +788,7 @@ function addCriticalWorksQueue(doc: jsPDF, works: WorkRead[], y: number): number
       3: { halign: "center" },
       4: { halign: "right" },
     },
-    didParseCell: (data: any) => {
+    didParseCell: (data: CellHookData) => {
       if (data.column.index === 3 && data.section === "body") {
         data.cell.styles.textColor = DANGER_COLOR;
         data.cell.styles.fontStyle = "bold";
@@ -810,7 +836,7 @@ function addWorksTable(doc: jsPDF, works: WorkRead[], y: number): number {
       6: { halign: "center" },
       7: { halign: "center" },
     },
-    didParseCell: (data: any) => {
+    didParseCell: (data: CellHookData) => {
       if (data.column.index === 6 && data.section === "body") {
         const risk = data.cell.raw as string;
         if (risk === "Crítico") data.cell.styles.textColor = DANGER_COLOR;
@@ -980,11 +1006,7 @@ function addFooter(doc: jsPDF): void {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
-    doc.text(
-      "ARGUS — Plataforma de Monitoramento de Obras Públicas",
-      15,
-      pageHeight - 5,
-    );
+    doc.text("ARGUS — Plataforma de Monitoramento de Obras Públicas", 15, pageHeight - 5);
     doc.text(`Página ${i} de ${pageCount}`, pageWidth - 15, pageHeight - 5, {
       align: "right",
     });

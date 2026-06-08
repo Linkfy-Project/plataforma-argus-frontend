@@ -23,5 +23,6 @@ export const mockAlertas: Alerta[] = mockObras
     obra_nome: o.nome,
     municipio: o.municipio,
     data_deteccao: new Date(Date.now() - i * 86400000 * 3).toISOString(),
-    acao_sugerida: "Solicitar relatório técnico ao órgão responsável e agendar visita de fiscalização.",
+    acao_sugerida:
+      "Solicitar relatório técnico ao órgão responsável e agendar visita de fiscalização.",
   }));

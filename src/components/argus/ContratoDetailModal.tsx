@@ -1,18 +1,5 @@
-import {
-  FileText,
-  Building,
-  MapPin,
-  Calendar,
-  Wallet,
-  CheckCircle2,
-  Clock,
-} from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { FileText, Building, MapPin, Calendar, Wallet, CheckCircle2, Clock } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { ContratoStatusBadge } from "@/components/argus/StatusBadge";
 import { fmtBRL, fmtDate } from "@/lib/format";
@@ -24,11 +11,7 @@ interface ContratoDetailModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function ContratoDetailModal({
-  contrato,
-  open,
-  onOpenChange,
-}: ContratoDetailModalProps) {
+export function ContratoDetailModal({ contrato, open, onOpenChange }: ContratoDetailModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85vh] w-[95vw] max-w-2xl flex-col gap-0 overflow-hidden p-0">
@@ -44,14 +27,10 @@ export function ContratoDetailModal({
                     </DialogTitle>
                     <ContratoStatusBadge status={contrato.status} />
                   </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Obra: {contrato.obra_nome}
-                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Obra: {contrato.obra_nome}</p>
                 </>
               ) : (
-                <DialogTitle className="text-base font-semibold">
-                  Detalhes do contrato
-                </DialogTitle>
+                <DialogTitle className="text-base font-semibold">Detalhes do contrato</DialogTitle>
               )}
             </div>
           </div>
@@ -75,26 +54,10 @@ export function ContratoDetailModal({
                   </h4>
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <InfoCard
-                    icon={FileText}
-                    label="Número do Contrato"
-                    value={contrato.numero}
-                  />
-                  <InfoCard
-                    icon={Building}
-                    label="Obra Vinculada"
-                    value={contrato.obra_nome}
-                  />
-                  <InfoCard
-                    icon={MapPin}
-                    label="Município"
-                    value={contrato.municipio}
-                  />
-                  <InfoCard
-                    icon={Building}
-                    label="Empresa Contratada"
-                    value={contrato.empresa}
-                  />
+                  <InfoCard icon={FileText} label="Número do Contrato" value={contrato.numero} />
+                  <InfoCard icon={Building} label="Obra Vinculada" value={contrato.obra_nome} />
+                  <InfoCard icon={MapPin} label="Município" value={contrato.municipio} />
+                  <InfoCard icon={Building} label="Empresa Contratada" value={contrato.empresa} />
                   <InfoCard
                     icon={Calendar}
                     label="Data de Assinatura"
@@ -141,16 +104,10 @@ export function ContratoDetailModal({
                 {/* Barra de progresso financeiro */}
                 <div className="mt-4">
                   <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Execução Financeira
-                    </span>
+                    <span className="text-muted-foreground">Execução Financeira</span>
                     <span className="font-semibold text-foreground">
                       {contrato.valor_contratado > 0
-                        ? Math.round(
-                            (contrato.valor_executado /
-                              contrato.valor_contratado) *
-                              100,
-                          )
+                        ? Math.round((contrato.valor_executado / contrato.valor_contratado) * 100)
                         : 0}
                       %
                     </span>
@@ -158,9 +115,7 @@ export function ContratoDetailModal({
                   <Progress
                     value={
                       contrato.valor_contratado > 0
-                        ? (contrato.valor_executado /
-                            contrato.valor_contratado) *
-                          100
+                        ? (contrato.valor_executado / contrato.valor_contratado) * 100
                         : 0
                     }
                     className="h-2.5"
@@ -215,9 +170,7 @@ export function ContratoDetailModal({
                   ) : (
                     <div className="flex items-center gap-2 rounded-lg border border-border bg-background/60 p-3">
                       <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">
-                        Status: {contrato.status}
-                      </p>
+                      <p className="text-sm text-muted-foreground">Status: {contrato.status}</p>
                     </div>
                   )}
                 </div>
@@ -247,9 +200,7 @@ function InfoCard({
     <div className="flex min-w-0 items-start gap-2 rounded-lg border border-border bg-background/60 p-3">
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
       <div className="min-w-0 flex-1 overflow-hidden">
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
         <p className="truncate text-sm font-medium text-foreground" title={value}>
           {value}
         </p>

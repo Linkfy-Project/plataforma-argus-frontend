@@ -558,3 +558,161 @@ export interface AlertWorkflowItem {
 
 /** Status permitidos para atualização de alertas. */
 export type AlertStatusValue = "Novo" | "Em análise" | "Encaminhado" | "Resolvido" | "Descartado";
+
+/* -------------------------------------------------------------------------- */
+/* Tipos de Relatórios Executivos (endpoint /reports/*)                        */
+/* -------------------------------------------------------------------------- */
+
+/** KPIs do relatório executivo geral. */
+export interface ReportExecutiveKPIs {
+  obras_monitoradas: number;
+  valor_total_contratado: number;
+  valor_total_pago: number;
+  valor_total_aditivos: number;
+  score_medio: number;
+  obras_eficientes: number;
+  obras_em_atencao: number;
+  obras_alto_risco: number;
+  obras_criticas: number;
+  obras_atrasadas: number;
+  obras_sem_geolocalizacao: number;
+  contratos_aditivos_altos: number;
+  percentual_executado: number;
+}
+
+/** Item de prioridade no relatório executivo. */
+export interface ReportPriorityItem {
+  id: number;
+  objeto: string;
+  bairro: string | null;
+  fornecedor: string | null;
+  score: number | null;
+  classificacao: string;
+  valor_contratado: number;
+  motivo: string;
+}
+
+/** Bairro crítico no relatório executivo. */
+export interface ReportCriticalNeighborhood {
+  bairro: string;
+  obras: number;
+  score_medio: number;
+  obras_criticas: number;
+  valor_total: number;
+}
+
+/** Fornecedor em revisão no relatório executivo. */
+export interface ReportSupplierReview {
+  fornecedor: string;
+  obras: number;
+  score_medio: number;
+  alertas: number;
+  valor_total: number;
+  classificacao: string;
+}
+
+/** Contrato com aditivos altos. */
+export interface ReportHighAdditive {
+  id: number;
+  objeto: string;
+  fornecedor: string | null;
+  valor_contratado: number;
+  valor_aditivo: number;
+  percentual_aditivo: number;
+}
+
+/** Alerta crítico no relatório. */
+export interface ReportCriticalAlert {
+  id: number;
+  obra_id: number;
+  obra: string;
+  codigo: string;
+  severidade: string;
+  mensagem: string;
+  criado_em: string | null;
+}
+
+/** Relatório executivo geral completo. */
+export interface ExecutiveReport {
+  municipio: string;
+  gerado_em: string;
+  kpis: ReportExecutiveKPIs;
+  prioridades_hoje: ReportPriorityItem[];
+  bairros_criticos: ReportCriticalNeighborhood[];
+  fornecedores_revisao: ReportSupplierReview[];
+  contratos_aditivos_altos: ReportHighAdditive[];
+  alertas_criticos: ReportCriticalAlert[];
+  recomendacoes: string[];
+}
+
+/** Obra crítica no relatório. */
+export interface CriticalWorkReportItem {
+  id: number;
+  objeto: string;
+  bairro: string | null;
+  municipio: string;
+  fornecedor: string | null;
+  score: number | null;
+  classificacao: string;
+  valor_contratado: number;
+  valor_pago: number;
+  percentual_aditivo: number;
+  dias_atraso: number;
+  alertas: number;
+  score_custo: number | null;
+  score_prazo: number | null;
+  score_qualidade: number | null;
+  score_recorrencia: number | null;
+  score_social: number | null;
+  previsao_entrega: string | null;
+  status: string;
+}
+
+/** Bairro no relatório de bairros. */
+export interface NeighborhoodReportItem {
+  bairro: string;
+  obras: number;
+  score_medio: number | null;
+  classificacao: string;
+  obras_criticas: number;
+  obras_alto_risco: number;
+  obras_atrasadas: number;
+  valor_total: number;
+  valor_pago: number;
+  alertas_totais: number;
+  fornecedores_distintos: number;
+}
+
+/** Fornecedor no relatório de fornecedores. */
+export interface SupplierReportItem {
+  fornecedor: string;
+  contratos: number;
+  score_medio: number | null;
+  classificacao: string;
+  obras_criticas: number;
+  obras_atrasadas: number;
+  valor_total: number;
+  valor_pago: number;
+  alertas_totais: number;
+  bairros_atuacao: string[];
+  aditivo_medio_percentual: number;
+}
+
+/** Relatório de qualidade dos dados. */
+export interface DataQualityReportFull {
+  municipio: string;
+  total_obras: number;
+  obras_sem_bairro: number;
+  obras_sem_geolocalizacao: number;
+  obras_sem_valor: number;
+  obras_sem_fornecedor: number;
+  obras_sem_prazo: number;
+  obras_sem_score: number;
+  data_quality_score: number;
+  obras_para_saneamento: Array<{
+    id: number;
+    descricao: string;
+    bairro: string | null;
+    problemas: string[];
+  }>;
+}

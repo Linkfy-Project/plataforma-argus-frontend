@@ -72,15 +72,13 @@ const SEMAFOROS = [
     cor: "🟡",
     bg: "bg-yellow-500/10 border-yellow-500/30",
     titulo: "Amarelo — Atenção",
-    descricao:
-      "Pequenos atrasos ou aditivos detectados. Acompanhamento recomendado.",
+    descricao: "Pequenos atrasos ou aditivos detectados. Acompanhamento recomendado.",
   },
   {
     cor: "🔴",
     bg: "bg-red-500/10 border-red-500/30",
     titulo: "Vermelho — Problema",
-    descricao:
-      "Risco alto, embargos ou estouro de prazo. Controle social necessário.",
+    descricao: "Risco alto, embargos ou estouro de prazo. Controle social necessário.",
   },
 ];
 
@@ -104,10 +102,10 @@ function CidadaoTransparencia() {
             Como o ARGUS fiscaliza?
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground md:text-base">
-            O ARGUS é uma plataforma que monitora obras públicas usando dados oficiais
-            do Tribunal de Contas (TCE-RJ), CREA-RJ, IBGE e tabelas do governo. Nosso
-            objetivo é garantir que o dinheiro público seja bem aplicado e que você,
-            cidadão, possa acompanhar tudo de forma simples e transparente.
+            O ARGUS é uma plataforma que monitora obras públicas usando dados oficiais do Tribunal
+            de Contas (TCE-RJ), CREA-RJ, IBGE e tabelas do governo. Nosso objetivo é garantir que o
+            dinheiro público seja bem aplicado e que você, cidadão, possa acompanhar tudo de forma
+            simples e transparente.
           </p>
         </div>
       </section>
@@ -115,9 +113,7 @@ function CidadaoTransparencia() {
       {/* Os 6 pilares */}
       <section>
         <div className="mb-6 text-center">
-          <h2 className="text-xl font-bold text-foreground">
-            Como avaliamos cada obra?
-          </h2>
+          <h2 className="text-xl font-bold text-foreground">Como avaliamos cada obra?</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Usamos 6 critérios simples para analisar cada obra pública.
           </p>
@@ -134,12 +130,8 @@ function CidadaoTransparencia() {
               >
                 <p.icon className="h-6 w-6" />
               </div>
-              <h3 className="mt-4 text-base font-semibold text-foreground">
-                {p.titulo}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {p.descricao}
-              </p>
+              <h3 className="mt-4 text-base font-semibold text-foreground">{p.titulo}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{p.descricao}</p>
             </div>
           ))}
         </div>
@@ -155,14 +147,9 @@ function CidadaoTransparencia() {
         </p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {SEMAFOROS.map((s) => (
-            <div
-              key={s.titulo}
-              className={`rounded-xl border p-6 text-center ${s.bg}`}
-            >
+            <div key={s.titulo} className={`rounded-xl border p-6 text-center ${s.bg}`}>
               <span className="text-4xl">{s.cor}</span>
-              <h3 className="mt-3 text-base font-semibold text-foreground">
-                {s.titulo}
-              </h3>
+              <h3 className="mt-3 text-base font-semibold text-foreground">{s.titulo}</h3>
               <p className="mt-2 text-sm text-muted-foreground">{s.descricao}</p>
             </div>
           ))}
@@ -172,12 +159,10 @@ function CidadaoTransparencia() {
       {/* De onde vêm os dados */}
       <section className="rounded-2xl border border-border bg-card p-6 shadow-sm md:p-8">
         <div className="text-center">
-          <h2 className="text-xl font-bold text-foreground">
-            De onde vêm os dados?
-          </h2>
+          <h2 className="text-xl font-bold text-foreground">De onde vêm os dados?</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            O ARGUS utiliza fontes oficiais e públicas para garantir a confiabilidade
-            das informações.
+            O ARGUS utiliza fontes oficiais e públicas para garantir a confiabilidade das
+            informações.
           </p>
         </div>
 
@@ -190,9 +175,7 @@ function CidadaoTransparencia() {
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <FileText className="h-5 w-5 text-primary" />
               </div>
-              <span className="text-sm font-bold text-foreground">
-                {fonte.nome}
-              </span>
+              <span className="text-sm font-bold text-foreground">{fonte.nome}</span>
               <span className="text-[11px] leading-relaxed text-muted-foreground">
                 {fonte.descricao}
               </span>
@@ -203,12 +186,10 @@ function CidadaoTransparencia() {
 
       {/* CTA para metodologia completa */}
       <section className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-6 text-center md:p-8">
-        <h2 className="text-lg font-semibold text-foreground">
-          Quer saber ainda mais?
-        </h2>
+        <h2 className="text-lg font-semibold text-foreground">Quer saber ainda mais?</h2>
         <p className="max-w-md text-sm text-muted-foreground">
-          Acesse o Portal do Gestor para ver a metodologia completa, com detalhes
-          sobre cada indicador utilizado pelo ARGUS.
+          Acesse o Portal do Gestor para ver a metodologia completa, com detalhes sobre cada
+          indicador utilizado pelo ARGUS.
         </p>
         <a
           href="/metodologia"

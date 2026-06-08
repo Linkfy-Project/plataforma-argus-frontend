@@ -11,5 +11,6 @@ export const mockContratos: Contrato[] = mockObras.map((o, i) => ({
   valor_executado: o.valor_executado,
   empresa: o.empresa_contratada,
   data_assinatura: o.data_inicio,
-  status: o.status === "Concluída" ? "Encerrado" : o.status === "Paralisada" ? "Suspenso" : "Vigente",
+  status:
+    o.status === "Concluída" ? "Encerrado" : o.status === "Paralisada" ? "Suspenso" : "Vigente",
 }));

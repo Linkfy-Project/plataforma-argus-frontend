@@ -64,14 +64,17 @@ export const fmtDateTime = (iso: string): string => {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return (
+    d.toLocaleDateString("pt-BR") +
+    " " +
+    d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+  );
 };
 
 /* -------------------------------- Números --------------------------------- */
 
 /** Formata número inteiro com separador de milhar: 1.234.567 */
-export const fmtNumber = (v: number): string =>
-  new Intl.NumberFormat("pt-BR").format(v ?? 0);
+export const fmtNumber = (v: number): string => new Intl.NumberFormat("pt-BR").format(v ?? 0);
 
 /* -------------------------------- Scores ---------------------------------- */
 
@@ -104,5 +107,4 @@ export const formatRatio = (v?: number | null): string =>
   v == null ? "Não disponível" : `${Math.round(v * 100)}%`;
 
 /** Alias com tratamento de null para score — retorna "—/100" se nulo. */
-export const formatScore = (v?: number | null): string =>
-  fmtScore(v ?? null);
+export const formatScore = (v?: number | null): string => fmtScore(v ?? null);

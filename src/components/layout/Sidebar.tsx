@@ -1,7 +1,19 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, HardHat, Building2, FileText, AlertTriangle, BarChart3,
-  Settings, Shield, Map, MapPinned, BookOpen, Database, Users, Truck,
+  LayoutDashboard,
+  HardHat,
+  Building2,
+  FileText,
+  AlertTriangle,
+  BarChart3,
+  Settings,
+  Shield,
+  Map,
+  MapPinned,
+  BookOpen,
+  Database,
+  Users,
+  Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,8 +40,12 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
       <div className="flex h-16 items-center gap-2 border-b border-white/5 px-6">
         <Shield className="h-6 w-6 text-[color:var(--sidebar-accent-hl)]" />
         <div>
-          <p className="text-lg font-bold tracking-wider text-[color:var(--sidebar-accent-hl)]">ARGUS</p>
-          <p className="text-[10px] uppercase tracking-widest text-white/50">Obras Públicas · Macaé-RJ</p>
+          <p className="text-lg font-bold tracking-wider text-[color:var(--sidebar-accent-hl)]">
+            ARGUS
+          </p>
+          <p className="text-[10px] uppercase tracking-widest text-white/50">
+            Obras Públicas · Macaé-RJ
+          </p>
         </div>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">

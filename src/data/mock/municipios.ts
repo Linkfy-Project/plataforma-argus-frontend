@@ -17,7 +17,7 @@ function normalizeNomeMunicipio(raw: string): string {
     .toLowerCase();
   const map: Record<string, string> = {
     macae: "Macaé-RJ",
-    "macaé": "Macaé-RJ",
+    macaé: "Macaé-RJ",
   };
   return map[cleaned] ?? raw;
 }
@@ -31,7 +31,8 @@ export const mockMunicipios: Municipio[] = MUNICIPIOS_RJ.map((nome, i) => {
     total_obras: obras.length,
     obras_em_andamento: obras.filter((o) => o.status === "Em andamento").length,
     obras_concluidas: obras.filter((o) => o.status === "Concluída").length,
-    obras_com_alerta: obras.filter((o) => o.status === "Atrasada" || o.status === "Paralisada").length,
+    obras_com_alerta: obras.filter((o) => o.status === "Atrasada" || o.status === "Paralisada")
+      .length,
     valor_total: obras.reduce((s, o) => s + o.valor_contratado, 0),
     eficiencia: pseudoEficiencia(i + 7),
   };

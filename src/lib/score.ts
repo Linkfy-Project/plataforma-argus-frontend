@@ -20,21 +20,41 @@
  */
 
 /** Classificação de risco padronizada. */
-export type RiskLevel =
-  | "Eficiente"
-  | "Atenção"
-  | "Alto risco"
-  | "Crítico"
-  | "Sem dados";
+export type RiskLevel = "Eficiente" | "Atenção" | "Alto risco" | "Crítico" | "Sem dados";
 
 /** Pilares do score ARGUS com pesos e campos associados. */
 export const ARGUS_PILLARS = [
   { key: "cost", label: "Custo Paramétrico", weight: 0.25, scoreField: "cost_score" as const },
-  { key: "deadline", label: "Prazo / Cronograma", weight: 0.25, scoreField: "deadline_score" as const },
-  { key: "quality", label: "Qualidade Técnica e Aditivos", weight: 0.20, scoreField: "quality_score" as const },
-  { key: "recurrence", label: "Recorrência Territorial", weight: 0.10, scoreField: "recurrence_score" as const },
-  { key: "social", label: "Impacto Socioeconômico", weight: 0.05, scoreField: "social_impact_score" as const },
-  { key: "ml_risk", label: "Risco Preditivo (ML)", weight: 0.15, scoreField: "risk_delay_probability" as const },
+  {
+    key: "deadline",
+    label: "Prazo / Cronograma",
+    weight: 0.25,
+    scoreField: "deadline_score" as const,
+  },
+  {
+    key: "quality",
+    label: "Qualidade Técnica e Aditivos",
+    weight: 0.2,
+    scoreField: "quality_score" as const,
+  },
+  {
+    key: "recurrence",
+    label: "Recorrência Territorial",
+    weight: 0.1,
+    scoreField: "recurrence_score" as const,
+  },
+  {
+    key: "social",
+    label: "Impacto Socioeconômico",
+    weight: 0.05,
+    scoreField: "social_impact_score" as const,
+  },
+  {
+    key: "ml_risk",
+    label: "Risco Preditivo (ML)",
+    weight: 0.15,
+    scoreField: "risk_delay_probability" as const,
+  },
 ] as const;
 
 export const IDH_CRITICAL_THRESHOLD = 0.6;
@@ -107,11 +127,16 @@ export const getScoreColorClass = getScoreClasses;
 /** Cor hex usada em charts / map markers. */
 export function getScoreHex(score: number | null | undefined): string {
   switch (getRiskLevel(score)) {
-    case "Eficiente": return "#22C55E";
-    case "Atenção": return "#F59E0B";
-    case "Alto risco": return "#F97316";
-    case "Crítico": return "#DC2626";
-    default: return "#94A3B8";
+    case "Eficiente":
+      return "#22C55E";
+    case "Atenção":
+      return "#F59E0B";
+    case "Alto risco":
+      return "#F97316";
+    case "Crítico":
+      return "#DC2626";
+    default:
+      return "#94A3B8";
   }
 }
 
@@ -131,10 +156,14 @@ export function getSeverityKey(severity: string): SeverityKey {
 
 export function getSeverityLabel(severity: string): string {
   switch (getSeverityKey(severity)) {
-    case "critical": return "Crítico";
-    case "alert": return "Alerta";
-    case "warning": return "Atenção";
-    default: return "Informativo";
+    case "critical":
+      return "Crítico";
+    case "alert":
+      return "Alerta";
+    case "warning":
+      return "Atenção";
+    default:
+      return "Informativo";
   }
 }
 

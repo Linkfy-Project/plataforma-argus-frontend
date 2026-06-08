@@ -17,10 +17,21 @@ const RISK_CONFIG: Record<RiskCategory, { label: string; icon: typeof Clock }> =
 };
 
 function getRiskColor(prob: number): { bg: string; text: string; border: string } {
-  if (prob >= 0.7) return { bg: "bg-destructive/10", text: "text-destructive", border: "border-destructive/30" };
-  if (prob >= 0.4) return { bg: "bg-orange-500/10", text: "text-orange-600", border: "border-orange-500/30" };
-  if (prob >= 0.2) return { bg: "bg-[color:var(--warning)]/10", text: "text-[color:var(--warning)]", border: "border-[color:var(--warning)]/30" };
-  return { bg: "bg-[color:var(--success)]/10", text: "text-[color:var(--success)]", border: "border-[color:var(--success)]/30" };
+  if (prob >= 0.7)
+    return { bg: "bg-destructive/10", text: "text-destructive", border: "border-destructive/30" };
+  if (prob >= 0.4)
+    return { bg: "bg-orange-500/10", text: "text-orange-600", border: "border-orange-500/30" };
+  if (prob >= 0.2)
+    return {
+      bg: "bg-[color:var(--warning)]/10",
+      text: "text-[color:var(--warning)]",
+      border: "border-[color:var(--warning)]/30",
+    };
+  return {
+    bg: "bg-[color:var(--success)]/10",
+    text: "text-[color:var(--success)]",
+    border: "border-[color:var(--success)]/30",
+  };
 }
 
 function getRiskLabel(prob: number): string {
@@ -34,7 +45,12 @@ function getRiskLabel(prob: number): string {
  * Badge showing ML predictive risk probability for a specific category.
  * Displays a colored pill with icon, percentage, and risk level.
  */
-export function PredictiveRiskBadge({ category, probability, compact = false, className }: RiskBadgeProps) {
+export function PredictiveRiskBadge({
+  category,
+  probability,
+  compact = false,
+  className,
+}: RiskBadgeProps) {
   if (probability == null || Number.isNaN(probability)) return null;
 
   const config = RISK_CONFIG[category];
@@ -73,7 +89,9 @@ export function PredictiveRiskBadge({ category, probability, compact = false, cl
       <Icon className="h-3.5 w-3.5" />
       <span>{config.label}</span>
       <span className="font-bold">{pct}%</span>
-      <span className="text-[10px] font-medium uppercase tracking-wide opacity-70">{getRiskLabel(probability)}</span>
+      <span className="text-[10px] font-medium uppercase tracking-wide opacity-70">
+        {getRiskLabel(probability)}
+      </span>
     </span>
   );
 }
