@@ -167,7 +167,15 @@ async function forward(request: Request, splat: string | undefined) {
   try {
     const query = new URL(request.url).searchParams;
     const municipio = query.get("municipio");
-    if (request.method === "GET" && municipio) {
+    // Só intercepta requests para endpoints que precisam de filtragem
+    // client-side por município. Outros endpoints (dashboard, territory, etc.)
+    // são encaminhados diretamente ao backend sem download desnecessário de obras.
+    const INTERCEPTED_PATHS = new Set([
+      "/api/v1/works",
+      "/api/v1/analytics/summary",
+      "/api/v1/analytics/trends",
+    ]);
+    if (request.method === "GET" && municipio && INTERCEPTED_PATHS.has(path)) {
       const works = (await fetchWorks(root, query, init)).filter((work) =>
         matchesMunicipio(work, municipio),
       );
