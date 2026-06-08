@@ -298,6 +298,8 @@ export interface PriorityQueueItem {
   score_argus: number | null;
   classificacao_risco: string;
   valor_contratado: number;
+  /** Indica se algum alerta da obra possui agravante social (IDH < 0.600). */
+  has_agravante_social?: boolean;
   valor_em_risco_estimado: number;
   dias_atraso: number;
   alertas_ativos: number;

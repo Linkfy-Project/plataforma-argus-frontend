@@ -218,10 +218,10 @@ function MacaePage() {
   const isError = overview.isError || neighborhoods.isError;
 
   const o = overview.data;
-  const nbs = useMemo(() => neighborhoods.data ?? [], [neighborhoods.data]);
+  const nbs = useMemo(() => (Array.isArray(neighborhoods.data) ? neighborhoods.data : []), [neighborhoods.data]);
   const quality = dataQuality.data;
-  const riskRanking = useMemo(() => (topRisk.data ?? []) as NeighborhoodRiskItem[], [topRisk.data]);
-  const allWorks = useMemo(() => works.data ?? [], [works.data]);
+  const riskRanking = useMemo(() => (Array.isArray(topRisk.data) ? topRisk.data as NeighborhoodRiskItem[] : []), [topRisk.data]);
+  const allWorks = useMemo(() => (Array.isArray(works.data) ? works.data : []), [works.data]);
 
   // Merge neighborhood data with risk ranking for enriched table
   const enrichedNeighborhoods = useMemo(() => {

@@ -108,3 +108,26 @@ export const formatRatio = (v?: number | null): string =>
 
 /** Alias com tratamento de null para score — retorna "—/100" se nulo. */
 export const formatScore = (v?: number | null): string => fmtScore(v ?? null);
+
+/* ----------------------- Truncamento inteligente --------------------------- */
+
+/**
+ * Trunca texto longo para um título resumido (~60 caracteres).
+ * - Se o texto for <= 60 caracteres, retorna como está.
+ * - Caso contrário, corta na última palavra inteira antes do limite e adiciona "...".
+ * @param text Texto original (pode ser null/undefined)
+ * @returns Título resumido
+ */
+export const truncateToTitle = (text: string | null | undefined, maxLen = 60): string => {
+  if (!text) return "—";
+  const trimmed = text.trim();
+  if (trimmed.length <= maxLen) return trimmed;
+  // Corta no limite e encontra o último espaço para não partir palavras
+  const truncated = trimmed.substring(0, maxLen - 3);
+  const lastSpace = truncated.lastIndexOf(" ");
+  // Se encontrou um espaço razoável (não muito curto), corta nele
+  if (lastSpace > 20) {
+    return truncated.substring(0, lastSpace) + "...";
+  }
+  return truncated + "...";
+};

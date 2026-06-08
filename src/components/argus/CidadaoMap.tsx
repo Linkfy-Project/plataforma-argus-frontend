@@ -39,6 +39,13 @@ const SEMAFORO_LABELS: Record<Semaforo, { label: string; desc: string }> = {
 
 /* ─── Interface ────────────────────────────────────────────────────── */
 
+/** Alvo de flyTo para busca geocodificada */
+export interface FlyToTarget {
+  lat: number;
+  lng: number;
+  zoom?: number;
+}
+
 interface CidadaoMapProps {
   works: WorkRead[];
   layers?: GeoLayerData[];
@@ -48,6 +55,8 @@ interface CidadaoMapProps {
   filteredIds?: Set<number>;
   /** Callback disparado ao clicar em "Ver detalhes" */
   onViewDetails?: (workId: number) => void;
+  /** Se informado, executa flyTo para as coordenadas especificadas */
+  flyToTarget?: FlyToTarget;
 }
 
 /* ─── Popup helper (versão cidadã) ─────────────────────────────────── */
@@ -110,6 +119,7 @@ export function CidadaoMap({
   height = "500px",
   filteredIds,
   onViewDetails,
+  flyToTarget,
 }: CidadaoMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -302,6 +312,15 @@ export function CidadaoMap({
       map.fitBounds(L.featureGroup(markers).getBounds().pad(0.1));
     }
   }, [geoWorks, filteredIds, onViewDetails]);
+
+  // Executa flyTo quando flyToTarget muda (busca geocodificada)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !flyToTarget) return;
+    map.flyTo([flyToTarget.lat, flyToTarget.lng], flyToTarget.zoom ?? 16, {
+      duration: 1.5,
+    });
+  }, [flyToTarget]);
 
   // Toggle a geo layer on/off
   const toggleLayer = useCallback((key: string) => {

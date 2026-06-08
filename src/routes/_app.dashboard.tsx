@@ -237,6 +237,8 @@ function computePriorityFromWorks(works: WorkRead[]): PriorityQueueItem[] {
     alertas_ativos: (item.work.alerts ?? []).length,
     motivo_principal: item.motivo,
     acao_sugerida: item.acao,
+    // Indica se algum alerta possui agravante social (severity_multiplier > 1 = IDH < 0.600)
+    has_agravante_social: (item.work.alerts ?? []).some((a) => a.severity_multiplier > 1),
   }));
 }
 
@@ -791,6 +793,11 @@ function DashboardPage() {
                         >
                           {item.obra}
                         </button>
+                        {item.has_agravante_social && (
+                          <span className="ml-1 inline-flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                            ⚠ Agravante Social
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {item.bairro ?? "—"}

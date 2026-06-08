@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/* Itens de navegação da sidebar - Dashboard é o primeiro item */
 export const NAV_ITEMS = [
   { to: "/dashboard", label: "Painel Executivo", icon: LayoutDashboard },
   { to: "/obras", label: "Obras", icon: HardHat },
@@ -76,9 +77,10 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+/* Sidebar fixa (sticky) - não rola junto com o conteúdo principal */
 export function Sidebar() {
   return (
-    <aside className="hidden md:flex md:w-64 md:flex-col">
+    <aside className="hidden md:flex md:w-64 md:flex-col sticky top-0 h-screen overflow-y-auto shrink-0">
       <SidebarNav />
     </aside>
   );

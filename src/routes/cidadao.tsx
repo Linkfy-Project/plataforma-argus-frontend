@@ -1,6 +1,6 @@
-import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useLocation, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, RefreshCw } from "lucide-react";
+import { ArrowLeft, Bell, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { alertasService } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
 
 function CidadaoLayout() {
   const location = useLocation();
+  const router = useRouter();
   const queryClient = useQueryClient();
 
   // Count unread alerts for the badge
@@ -48,18 +49,30 @@ function CidadaoLayout() {
       {/* Header público */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-backdrop-blur:bg-card/80">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link
-            to="/cidadao"
-            className="flex items-center gap-3 transition-opacity hover:opacity-80"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground shadow-sm">
-              A
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-foreground leading-tight">ARGUS</h1>
-              <p className="text-[10px] text-muted-foreground leading-tight">Portal do Cidadão</p>
-            </div>
-          </Link>
+          {/* Botão Voltar - navega para a página anterior */}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.history.back()}
+              className="gap-1.5 text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Voltar</span>
+            </Button>
+            <Link
+              to="/cidadao"
+              className="flex items-center gap-3 transition-opacity hover:opacity-80"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground shadow-sm">
+                A
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-foreground leading-tight">ARGUS</h1>
+                <p className="text-[10px] text-muted-foreground leading-tight">Portal do Cidadão</p>
+              </div>
+            </Link>
+          </div>
 
           <nav className="flex items-center gap-1">
             {NAV_ITEMS.map((item) => (

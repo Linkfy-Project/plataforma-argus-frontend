@@ -38,8 +38,9 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { obrasService, worksService, adaptObra } from "@/lib/api";
-import { fmtBRL, fmtBRLCompact, fmtDate, fmtPct } from "@/lib/format";
+import { fmtBRL, fmtBRLCompact, fmtDate, fmtPct, truncateToTitle } from "@/lib/format";
 import { getRiskLevel, getScoreHex } from "@/lib/score";
+import { ObraDetailModal } from "@/components/argus/ObraDetailModal";
 import type { Obra, WorkRead, ObraStatus } from "@/types";
 
 export const Route = createFileRoute("/_app/obras")({
@@ -72,6 +73,8 @@ interface ExtendedObra extends Obra {
   additive_pct?: number;
   contractor_document?: string;
   managing_unit?: string;
+  /** Indica se algum alerta da obra possui agravante social (severity_multiplier > 1). */
+  has_agravante_social: boolean;
 }
 
 /** Adapta WorkRead para ExtendedObra com todos os campos enriquecidos. */
@@ -89,6 +92,8 @@ function adaptExtendedObra(w: WorkRead): ExtendedObra {
   const hasCritical = alertas.some((a) =>
     ["critical", "critico", "crítico", "danger"].includes(a.severity?.toLowerCase()),
   );
+  // Verifica se algum alerta possui agravante social (severity_multiplier > 1 = IDH < 0.600)
+  const hasAgravanteSocial = alertas.some((a) => a.severity_multiplier > 1);
 
   const score = w.efficiency_score ?? null;
   const riskLevel = getRiskLevel(score);
@@ -125,6 +130,7 @@ function adaptExtendedObra(w: WorkRead): ExtendedObra {
       w.additive_value && w.contract_value ? w.additive_value / w.contract_value : undefined,
     contractor_document: w.contractor_document ?? undefined,
     managing_unit: w.managing_unit ?? undefined,
+    has_agravante_social: hasAgravanteSocial,
   };
 }
 
@@ -892,120 +898,140 @@ function SummaryCard({
 function ObraTableRow({ obra: o }: { obra: ExtendedObra }) {
   const hasGeo = !!o.lat && !!o.lng;
   const riskColor = riskBadgeColor(o.classificacao_risco);
+  // Estado para controlar abertura do modal de detalhes ao clicar na linha
+  const [modalOpen, setModalOpen] = useState(false);
 
   return (
-    <tr className="transition-colors hover:bg-primary/5">
-      {/* Obra */}
-      <td className="px-3 py-3">
-        <Link
-          to="/obras/$id"
-          params={{ id: o.id }}
-          className="text-sm font-medium text-foreground hover:text-primary hover:underline line-clamp-2"
-        >
-          {o.nome}
-        </Link>
-      </td>
-
-      {/* Bairro */}
-      <td className="px-3 py-3 text-xs text-muted-foreground">{o.bairro}</td>
-
-      {/* Secretaria */}
-      <td className="px-3 py-3 text-xs text-muted-foreground line-clamp-1" title={o.secretaria}>
-        {o.secretaria}
-      </td>
-
-      {/* Fornecedor */}
-      <td className="px-3 py-3 text-xs text-muted-foreground line-clamp-1" title={o.fornecedor}>
-        {o.fornecedor}
-      </td>
-
-      {/* Valor contratado */}
-      <td className="px-3 py-3 text-right tabular-nums text-xs text-foreground">
-        {fmtBRL(o.valor_contratado)}
-      </td>
-
-      {/* Prazo previsto */}
-      <td className="px-3 py-3 text-xs text-muted-foreground">{fmtDate(o.data_fim_prevista)}</td>
-
-      {/* Dias de atraso */}
-      <td className="px-3 py-3 text-right">
-        {o.dias_atraso > 0 ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive tabular-nums">
-            <TrendingDown className="h-3 w-3" />
-            {o.dias_atraso}d
+    <>
+      <tr
+        className="cursor-pointer transition-colors hover:bg-primary/5"
+        onClick={() => setModalOpen(true)}
+      >
+        {/* Obra — título resumido via truncateToTitle */}
+        <td className="px-3 py-3 text-center">
+          <span className="text-sm font-medium text-foreground" title={o.nome}>
+            {truncateToTitle(o.nome)}
           </span>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </td>
-
-      {/* Execução financeira */}
-      <td className="px-3 py-3">
-        <div className="flex items-center gap-2">
-          <Progress value={o.percentual_execucao} className="h-2" />
-          <span className="w-10 text-right tabular-nums text-xs text-muted-foreground">
-            {fmtPct(o.percentual_execucao)}
-          </span>
-        </div>
-      </td>
-
-      {/* Score ARGUS */}
-      <td className="px-3 py-3">
-        <ScoreBadge score={o.eficiencia ?? null} />
-      </td>
-
-      {/* Risco */}
-      <td className="px-3 py-3">
-        <span
-          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${riskColor}`}
-        >
-          {o.classificacao_risco}
-        </span>
-      </td>
-
-      {/* Alertas */}
-      <td className="px-3 py-3 text-center">
-        {o.alertas_ativos > 0 ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive tabular-nums">
-            <AlertTriangle className="h-3 w-3" />
-            {o.alertas_ativos}
-          </span>
-        ) : (
-          <span className="text-xs text-muted-foreground">0</span>
-        )}
-      </td>
-
-      {/* Motivo principal */}
-      <td className="px-3 py-3">
-        <span className="text-xs text-muted-foreground line-clamp-2" title={o.motivo_principal}>
-          {o.motivo_principal}
-        </span>
-      </td>
-
-      {/* Ação */}
-      <td className="px-3 py-3 text-right">
-        <div className="flex items-center justify-end gap-1">
-          <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs">
-            <Link to="/obras/$id" params={{ id: o.id }}>
-              <Eye className="mr-1 h-3.5 w-3.5" />
-              Detalhes
-            </Link>
-          </Button>
-          {hasGeo ? (
-            <Button asChild variant="outline" size="sm" className="h-7 px-2 text-xs">
-              <Link to="/mapa" search={{ obra: o.id }}>
-                <MapPin className="mr-1 h-3.5 w-3.5" />
-                Mapa
-              </Link>
-            </Button>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded bg-muted px-2 py-1 text-[10px] text-muted-foreground">
-              <MapPinOff className="h-3 w-3" />
-              Sem geo
+          {/* Badge de Agravante Social — exibido ao lado do nome da obra */}
+          {o.has_agravante_social && (
+            <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+              ⚠ Agravante Social
             </span>
           )}
-        </div>
-      </td>
-    </tr>
+        </td>
+
+        {/* Bairro */}
+        <td className="px-3 py-3 text-center text-xs text-muted-foreground">{o.bairro}</td>
+
+        {/* Secretaria */}
+        <td
+          className="px-3 py-3 text-center text-xs text-muted-foreground line-clamp-1"
+          title={o.secretaria}
+        >
+          {o.secretaria}
+        </td>
+
+        {/* Fornecedor */}
+        <td
+          className="px-3 py-3 text-center text-xs text-muted-foreground line-clamp-1"
+          title={o.fornecedor}
+        >
+          {o.fornecedor}
+        </td>
+
+        {/* Valor contratado */}
+        <td className="px-3 py-3 text-right tabular-nums text-xs text-foreground">
+          {fmtBRL(o.valor_contratado)}
+        </td>
+
+        {/* Prazo previsto */}
+        <td className="px-3 py-3 text-center text-xs text-muted-foreground">
+          {fmtDate(o.data_fim_prevista)}
+        </td>
+
+        {/* Dias de atraso */}
+        <td className="px-3 py-3 text-right">
+          {o.dias_atraso > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive tabular-nums">
+              <TrendingDown className="h-3 w-3" />
+              {o.dias_atraso}d
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
+        </td>
+
+        {/* Execução financeira */}
+        <td className="px-3 py-3">
+          <div className="flex items-center gap-2">
+            <Progress value={o.percentual_execucao} className="h-2" />
+            <span className="w-10 text-right tabular-nums text-xs text-muted-foreground">
+              {fmtPct(o.percentual_execucao)}
+            </span>
+          </div>
+        </td>
+
+        {/* Score ARGUS */}
+        <td className="px-3 py-3">
+          <ScoreBadge score={o.eficiencia ?? null} />
+        </td>
+
+        {/* Risco */}
+        <td className="px-3 py-3 text-center">
+          <span
+            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${riskColor}`}
+          >
+            {o.classificacao_risco}
+          </span>
+        </td>
+
+        {/* Alertas */}
+        <td className="px-3 py-3 text-center">
+          {o.alertas_ativos > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive tabular-nums">
+              <AlertTriangle className="h-3 w-3" />
+              {o.alertas_ativos}
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">0</span>
+          )}
+        </td>
+
+        {/* Motivo principal */}
+        <td className="px-3 py-3 text-center">
+          <span className="text-xs text-muted-foreground line-clamp-2" title={o.motivo_principal}>
+            {o.motivo_principal}
+          </span>
+        </td>
+
+        {/* Ação */}
+        <td className="px-3 py-3 text-right">
+          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs">
+              <Link to="/obras/$id" params={{ id: o.id }}>
+                <Eye className="mr-1 h-3.5 w-3.5" />
+                Detalhes
+              </Link>
+            </Button>
+            {hasGeo ? (
+              <Button asChild variant="outline" size="sm" className="h-7 px-2 text-xs">
+                <Link to="/mapa" search={{ obra: o.id }}>
+                  <MapPin className="mr-1 h-3.5 w-3.5" />
+                  Mapa
+                </Link>
+              </Button>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded bg-muted px-2 py-1 text-[10px] text-muted-foreground">
+                <MapPinOff className="h-3 w-3" />
+                Sem geo
+              </span>
+            )}
+          </div>
+        </td>
+      </tr>
+
+      {/* Modal de detalhes da obra — abre ao clicar na linha */}
+      <ObraDetailModal obraId={o.id} open={modalOpen} onOpenChange={setModalOpen} />
+    </>
   );
 }

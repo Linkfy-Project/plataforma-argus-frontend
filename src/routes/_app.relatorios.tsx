@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useCallback } from "react";
 import { downloadReport } from "@/lib/pdf-report";
@@ -57,7 +57,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { exportsService, analyticsService, worksService, reportsService } from "@/lib/api";
-import { fmtBRL, fmtNumber, fmtDate } from "@/lib/format";
+import { fmtBRL, fmtNumber, fmtDate, truncateToTitle } from "@/lib/format";
 import { getRiskLevel } from "@/lib/score";
 import type {
   WorkRead,
@@ -484,10 +484,13 @@ function CriticalWorksPreview({ data }: { data: CriticalWorkReportItem[] }) {
         <tbody className="divide-y divide-border">
           {data.slice(0, 20).map((w) => (
             <tr key={w.id} className="hover:bg-primary/5">
-              <td className="max-w-[200px] truncate px-3 py-2 font-medium text-foreground">
-                {w.objeto}
+              <td
+                className="max-w-[200px] truncate px-3 py-2 text-center font-medium text-foreground"
+                title={w.objeto}
+              >
+                {truncateToTitle(w.objeto)}
               </td>
-              <td className="px-3 py-2 text-muted-foreground">{w.bairro || "—"}</td>
+              <td className="px-3 py-2 text-center text-muted-foreground">{w.bairro || "—"}</td>
               <td className="px-3 py-2 text-center">
                 <ScoreBadge score={w.score} />
               </td>
@@ -1330,9 +1333,10 @@ function RelatoriosPage() {
               <thead className="sticky top-0 z-10 border-b border-border bg-muted/80 text-left text-xs uppercase tracking-wide text-muted-foreground backdrop-blur">
                 <tr>
                   <th className="px-3 py-2 font-medium">Obra</th>
-                  <th className="px-3 py-2 font-medium">Município</th>
+                  <th className="px-3 py-2 font-medium text-center">Município</th>
                   <th className="px-3 py-2 font-medium text-right">Valor</th>
                   <th className="px-3 py-2 font-medium text-right">Score</th>
+                  <th className="px-3 py-2 font-medium text-center">Detalhes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -1341,15 +1345,28 @@ function RelatoriosPage() {
                   .slice(0, 10)
                   .map((w) => (
                     <tr key={w.id} className="hover:bg-primary/5">
-                      <td className="max-w-[200px] truncate px-3 py-2 font-medium text-foreground">
-                        {w.object_description}
+                      <td
+                        className="max-w-[200px] truncate px-3 py-2 text-center font-medium text-foreground"
+                        title={w.object_description}
+                      >
+                        {truncateToTitle(w.object_description)}
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground">{w.municipio}</td>
+                      <td className="px-3 py-2 text-center text-muted-foreground">{w.municipio}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
                         {fmtBRL(w.contract_value ?? 0)}
                       </td>
                       <td className="px-3 py-2 text-right">
                         <ScoreBadge score={w.efficiency_score} />
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <Link
+                          to="/obras/$id"
+                          params={{ id: String(w.id) }}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Ver
+                        </Link>
                       </td>
                     </tr>
                   ))}

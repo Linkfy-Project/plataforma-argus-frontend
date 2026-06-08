@@ -1,13 +1,15 @@
 /**
  * Helpers centralizados do Índice Composto de Eficiência ARGUS.
  *
- * Pilares e pesos oficiais (v3):
+ * Pilares e pesos oficiais (v4 — sem IDH no score base):
  *   - Custo Paramétrico           25%
  *   - Prazo / Cronograma          25%
  *   - Qualidade Técnica/Aditivos  20%
- *   - Recorrência Territorial     10%
- *   - Impacto Socioeconômico       5%
+ *   - Recorrência Territorial     15%
  *   - Risco Preditivo (ML)        15%
+ *
+ * NOTA: O IDH agora é um Agravante Social (Multiplicador de Criticidade),
+ * aplicado sobre os alertas quando IDH < 0.600, mas NÃO faz parte do score 0-100.
  *
  * Classificação padronizada (score alto = bom):
  *   - 80 a 100: Eficiente
@@ -16,13 +18,13 @@
  *   -  0 a  39: Crítico
  *   -  nulo   : Sem dados
  *
- * O multiplicador de criticidade é aplicado quando IDH < 0,600.
+ * O Agravante Social é aplicado quando IDH < 0,600.
  */
 
 /** Classificação de risco padronizada. */
 export type RiskLevel = "Eficiente" | "Atenção" | "Alto risco" | "Crítico" | "Sem dados";
 
-/** Pilares do score ARGUS com pesos e campos associados. */
+/** Pilares do score ARGUS com pesos e campos associados (v4 — 5 pilares, sem IDH). */
 export const ARGUS_PILLARS = [
   { key: "cost", label: "Custo Paramétrico", weight: 0.25, scoreField: "cost_score" as const },
   {
@@ -40,14 +42,8 @@ export const ARGUS_PILLARS = [
   {
     key: "recurrence",
     label: "Recorrência Territorial",
-    weight: 0.1,
+    weight: 0.15,
     scoreField: "recurrence_score" as const,
-  },
-  {
-    key: "social",
-    label: "Impacto Socioeconômico",
-    weight: 0.05,
-    scoreField: "social_impact_score" as const,
   },
   {
     key: "ml_risk",

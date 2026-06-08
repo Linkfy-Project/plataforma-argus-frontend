@@ -25,8 +25,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { contratosService } from "@/lib/api";
-import { fmtBRL, fmtBRLCompact, fmtDate, fmtPct } from "@/lib/format";
-import type { ContractItem } from "@/types";
+import { fmtBRL, fmtBRLCompact, fmtDate, fmtPct, truncateToTitle } from "@/lib/format";
+import { ContratoDetailModal } from "@/components/argus/ContratoDetailModal";
+import type { ContractItem, Contrato } from "@/types";
 
 export const Route = createFileRoute("/_app/contratos")({
   head: () => ({ meta: [{ title: "Contratos Publicos - Plataforma Argus" }] }),
@@ -58,11 +59,30 @@ function getAcaoSugerida(c: ContractItem): string {
   return parts.join(" ") || "Monitorar evolucao contratual.";
 }
 
+/** Adapta ContractItem para o tipo Contrato esperado pelo ContratoDetailModal. */
+function adaptToContrato(c: ContractItem): Contrato {
+  return {
+    id: c.id,
+    numero: c.numero_contrato ?? `SN-${c.work_id}`,
+    obra_id: String(c.work_id),
+    obra_nome: c.obra_nome ?? c.objeto ?? "—",
+    municipio: c.municipio ?? "—",
+    valor_contratado: c.valor_original ?? 0,
+    valor_executado: c.valor_pago ?? 0,
+    empresa: c.fornecedor ?? "—",
+    data_assinatura: c.data_inicio ?? "",
+    status: c.status ?? "—",
+  };
+}
+
 function ContratosPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["contratos-rich"],
     queryFn: () => contratosService.listRich(),
   });
+
+  // Estado do modal de detalhes do contrato
+  const [selectedContrato, setSelectedContrato] = useState<Contrato | null>(null);
 
   const [search, setSearch] = useState("");
   const [fFornecedor, setFFornecedor] = useState("todos");
@@ -332,23 +352,33 @@ function ContratosPage() {
                   return (
                     <tr
                       key={c.id}
-                      className={
+                      className={`cursor-pointer ${
                         isCritico
                           ? "bg-destructive/5 hover:bg-destructive/10"
                           : isVencido
                             ? "bg-orange-500/5 hover:bg-orange-500/10"
                             : "hover:bg-primary/5"
-                      }
+                      }`}
+                      onClick={() => setSelectedContrato(adaptToContrato(c))}
                     >
-                      <td className="px-3 py-3 font-medium text-foreground">
+                      <td className="px-3 py-3 text-center font-medium text-foreground">
                         {c.numero_contrato ?? `SN-${c.work_id}`}
                       </td>
-                      <td className="max-w-[200px] truncate px-3 py-3 text-foreground">
-                        {c.obra_nome ?? c.objeto ?? "—"}
+                      <td
+                        className="max-w-[200px] truncate px-3 py-3 text-center text-foreground"
+                        title={c.obra_nome ?? c.objeto ?? ""}
+                      >
+                        {truncateToTitle(c.obra_nome ?? c.objeto)}
                       </td>
-                      <td className="px-3 py-3 text-muted-foreground">{c.fornecedor ?? "—"}</td>
-                      <td className="px-3 py-3 text-muted-foreground">{c.secretaria ?? "—"}</td>
-                      <td className="px-3 py-3 text-muted-foreground">{c.bairro ?? "—"}</td>
+                      <td className="px-3 py-3 text-center text-muted-foreground">
+                        {c.fornecedor ?? "—"}
+                      </td>
+                      <td className="px-3 py-3 text-center text-muted-foreground">
+                        {c.secretaria ?? "—"}
+                      </td>
+                      <td className="px-3 py-3 text-center text-muted-foreground">
+                        {c.bairro ?? "—"}
+                      </td>
                       <td className="px-3 py-3 text-right tabular-nums">
                         {fmtBRL(c.valor_original ?? 0)}
                       </td>
@@ -368,11 +398,11 @@ function ContratosPage() {
                           "—"
                         )}
                       </td>
-                      <td className="px-3 py-3 text-muted-foreground">
+                      <td className="px-3 py-3 text-center text-muted-foreground">
                         {fmtDate(c.data_inicio ?? "")}
                       </td>
                       <td
-                        className={`px-3 py-3 ${isVencido ? "font-semibold text-destructive" : "text-muted-foreground"}`}
+                        className={`px-3 py-3 text-center ${isVencido ? "font-semibold text-destructive" : "text-muted-foreground"}`}
                       >
                         {fmtDate(c.data_fim ?? "")}
                         {c.dias_para_vencimento != null && (
@@ -414,10 +444,10 @@ function ContratosPage() {
                           <span className="text-muted-foreground">0</span>
                         )}
                       </td>
-                      <td className="max-w-[200px] px-3 py-3 text-xs text-muted-foreground">
+                      <td className="max-w-[200px] px-3 py-3 text-center text-xs text-muted-foreground">
                         {acao}
                       </td>
-                      <td className="px-3 py-3 text-right">
+                      <td className="px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <Link
                           to="/obras/$id"
                           params={{ id: String(c.work_id) }}
@@ -434,6 +464,15 @@ function ContratosPage() {
           </div>
         )}
       </div>
+
+      {/* Modal de detalhes do contrato */}
+      <ContratoDetailModal
+        contrato={selectedContrato}
+        open={!!selectedContrato}
+        onOpenChange={(open) => {
+          if (!open) setSelectedContrato(null);
+        }}
+      />
     </div>
   );
 }

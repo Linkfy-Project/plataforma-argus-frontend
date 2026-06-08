@@ -4,10 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { HardHat, AlertTriangle, Wallet, Search, MapPin } from "lucide-react";
 import { worksService, dashboardService, geoService } from "@/lib/api";
 import { CidadaoMap } from "@/components/argus/CidadaoMap";
+import type { FlyToTarget } from "@/components/argus/CidadaoMap";
 import type { GeoLayerData } from "@/components/argus/ArgusMap";
 import { StatCard } from "@/components/argus/StatCard";
 import { LoadingState, ErrorState } from "@/components/argus/EmptyState";
 import { Input } from "@/components/ui/input";
+import { GeocodingSearchBar } from "@/components/argus/GeocodingSearchBar";
+import type { GeocodingResult } from "@/components/argus/GeocodingSearchBar";
 import { fmtBRL, fmtNumber } from "@/lib/format";
 import type { WorkRead } from "@/types";
 
@@ -56,6 +59,13 @@ const LAYER_DEFS: {
 
 function CidadaoIndex() {
   const [search, setSearch] = useState("");
+  /** Alvo de flyTo para busca geocodificada (Photon) */
+  const [flyToTarget, setFlyToTarget] = useState<FlyToTarget | undefined>(undefined);
+
+  /** Trata a seleção de uma sugestão geocodificada */
+  function handleGeocodingSelect(result: GeocodingResult) {
+    setFlyToTarget({ lat: result.lat, lng: result.lng, zoom: 16 });
+  }
 
   const worksQuery = useQuery({
     queryKey: ["cidadao-index-works"],
@@ -183,11 +193,14 @@ function CidadaoIndex() {
         </p>
       </div>
 
-      {/* Barra de busca */}
+      {/* Barra de busca geocodificada (Photon API) */}
+      <GeocodingSearchBar onSelect={handleGeocodingSelect} />
+
+      {/* Barra de busca por obra */}
       <div className="relative">
         <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="🔍 Busque pelo seu bairro ou rua..."
+          placeholder="🔍 Busque pelo nome da obra, bairro ou rua..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="h-14 w-full rounded-xl border-border bg-card pl-12 pr-4 text-base shadow-sm placeholder:text-muted-foreground/60"
@@ -196,7 +209,13 @@ function CidadaoIndex() {
 
       {/* Mapa com camadas territoriais */}
       <section className="overflow-hidden rounded-xl border border-border shadow-sm">
-        <CidadaoMap works={allWorks} layers={geoLayers} height="480px" filteredIds={filteredIds} />
+        <CidadaoMap
+          works={allWorks}
+          layers={geoLayers}
+          height="480px"
+          filteredIds={filteredIds}
+          flyToTarget={flyToTarget}
+        />
       </section>
 
       {/* Resultado da busca */}

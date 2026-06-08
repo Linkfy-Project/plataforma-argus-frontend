@@ -27,11 +27,20 @@ export interface GeoLayerData {
   defaultActive?: boolean;
 }
 
+/** Alvo de flyTo para busca geocodificada */
+export interface FlyToTarget {
+  lat: number;
+  lng: number;
+  zoom?: number;
+}
+
 interface ArgusMapProps {
   works: WorkRead[];
   layers?: GeoLayerData[];
   className?: string;
   height?: string;
+  /** Se informado, executa flyTo para as coordenadas especificadas */
+  flyToTarget?: FlyToTarget;
 }
 
 /* ─── Status badge color helper ─────────────────────────────────────── */
@@ -63,6 +72,8 @@ function buildPopupContent(w: WorkRead): string {
     w.territorial_overlap_ratio != null
       ? `${Math.round(w.territorial_overlap_ratio * 100)}%`
       : null;
+  // Verifica se algum alerta possui agravante social (severity_multiplier > 1 = IDH < 0.600)
+  const hasAgravanteSocial = (w.alerts ?? []).some((a) => a.severity_multiplier > 1);
 
   return `
     <div style="min-width:240px;max-width:300px;font-family:system-ui,sans-serif;">
@@ -87,6 +98,7 @@ function buildPopupContent(w: WorkRead): string {
         </div>
         ${overlap ? `<div><strong>Sobreposição:</strong> <span style="color:${w.territorial_overlap_ratio! > 0.5 ? "#ea580c" : "#64748b"};font-weight:600;">${overlap}</span></div>` : ""}
       </div>
+      ${hasAgravanteSocial ? `<div style="margin-top:6px;padding:3px 8px;border-radius:9999px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.1);font-size:10px;font-weight:600;color:#dc2626;display:inline-block;">⚠ Agravante Social (IDH < 0.600)</div>` : ""}
       <a href="/obras/${w.id}" style="display:block;margin-top:8px;font-size:11px;color:#2563eb;text-decoration:none;">
         Ver detalhes →
       </a>
@@ -103,7 +115,13 @@ function getMarkerRadius(work: WorkRead): number {
 
 /* ─── Main map component ────────────────────────────────────────────── */
 
-export function ArgusMap({ works, layers = [], className, height = "500px" }: ArgusMapProps) {
+export function ArgusMap({
+  works,
+  layers = [],
+  className,
+  height = "500px",
+  flyToTarget,
+}: ArgusMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.CircleMarker[]>([]);
@@ -221,6 +239,15 @@ export function ArgusMap({ works, layers = [], className, height = "500px" }: Ar
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Executa flyTo quando flyToTarget muda (busca geocodificada)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !flyToTarget) return;
+    map.flyTo([flyToTarget.lat, flyToTarget.lng], flyToTarget.zoom ?? 16, {
+      duration: 1.5,
+    });
+  }, [flyToTarget]);
 
   // Toggle a geo layer on/off
   const toggleLayer = useCallback((key: string) => {

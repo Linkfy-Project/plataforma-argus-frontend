@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   Clock,
   DollarSign,
-  Users,
   Repeat,
   Brain,
   MapPin,
@@ -46,7 +45,7 @@ function MetodologiaPage() {
   const formulaLines = pillarsWithWeights.map(
     (p) => `${(p.weight * 100).toFixed(0).padStart(2)}% × ${p.label}`,
   );
-  const formulaText = `Score ARGUS = (\n${formulaLines.map((l, i) => (i === 0 ? "  " : "+ ") + l).join("\n")}\n) × Multiplicador de Criticidade`;
+  const formulaText = `Score ARGUS = (\n${formulaLines.map((l, i) => (i === 0 ? "  " : "+ ") + l).join("\n")}\n) × Agravante Social`;
 
   /* ── Penalidades CREA: API ou fallback ── */
   const penalties = rules?.crea_penalties ?? { light: -5, medium: -15, grave: -40 };
@@ -83,9 +82,11 @@ function MetodologiaPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               O Score ARGUS é um índice composto de <strong>0 a 100 pontos</strong> que avalia a
               eficiência de cada obra pública. Quanto <strong>maior</strong> o score,{" "}
-              <strong>melhor</strong> a classificação da obra. O índice combina seis pilares de
-              avaliação técnica, socioeconômica e preditiva, ponderados conforme seu impacto sobre a
-              eficiência da obra pública.
+              <strong>melhor</strong> a classificação da obra. O índice combina cinco pilares de
+              avaliação técnica e preditiva, ponderados conforme seu impacto sobre a eficiência da
+              obra pública. O IDH não compõe o score — ele atua como um{" "}
+              <strong>Agravante Social</strong> (multiplicador de risco) aplicado sobre alertas em
+              regiões de vulnerabilidade.
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
               O score é calculado automaticamente pelo sistema sempre que novos dados são inseridos
@@ -161,12 +162,13 @@ function MetodologiaPage() {
         </div>
       </div>
 
-      {/* ── Os 6 Pilares do Score ── */}
+      {/* ── Os 5 Pilares do Score ── */}
       <div className="mt-6 rounded-xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-foreground">Os 6 Pilares do Score ARGUS</h2>
+        <h2 className="text-lg font-semibold text-foreground">Os 5 Pilares do Score ARGUS</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Cada pilar contribui com um peso específico para o cálculo final. Os pesos podem ser
-          ajustados via API conforme a política de monitoramento evolui.
+          Cada pilar contribui com um peso específico para o cálculo final. O IDH não compõe o score
+          — ele atua como Agravante Social. Os pesos podem ser ajustados via API conforme a política
+          de monitoramento evolui.
         </p>
 
         <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -240,7 +242,7 @@ function MetodologiaPage() {
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
               O pilar <strong>Recorrência Territorial</strong> (peso de{" "}
-              {Math.round((rules?.weights?.recurrence ?? 0.1) * 100)}%) identifica concentrações
+              {Math.round((rules?.weights?.recurrence ?? 0.15) * 100)}%) identifica concentrações
               suspeitas de contratos. Quando o mesmo fornecedor acumula múltiplas obras no mesmo
               bairro ou região em curto intervalo de tempo, o sistema aumenta o nível de atenção.
               Isso não configura irregularidade por si só, mas sinaliza que a situação merece
@@ -259,10 +261,9 @@ function MetodologiaPage() {
             <p className="mt-2 text-sm text-muted-foreground">
               Obras sem coordenadas geográficas (latitude/longitude) ou sem bairro definido não
               podem ser analisadas pelo pilar de <strong>Recorrência Territorial</strong> nem
-              receber o <strong>Multiplicador de Criticidade</strong> baseado no IDH local. Isso
-              reduz a precisão da análise e pode resultar em score subestimado ou superestimado. O
-              sistema prioriza o saneamento cadastral dessas obras para melhorar a cobertura
-              analítica.
+              receber o <strong>Agravante Social</strong> baseado no IDH local. Isso reduz a
+              precisão da análise e pode resultar em score subestimado ou superestimado. O sistema
+              prioriza o saneamento cadastral dessas obras para melhorar a cobertura analítica.
             </p>
           </div>
 
@@ -297,8 +298,8 @@ function MetodologiaPage() {
             {formulaText}
           </pre>
           <p className="mt-3 text-xs text-muted-foreground">
-            O Multiplicador de Criticidade reduz a tolerância e intensifica alertas em territórios
-            de alta vulnerabilidade social — aplicado quando o{" "}
+            O Agravante Social intensifica a criticidade dos alertas em territórios de alta
+            vulnerabilidade social — aplicado quando o{" "}
             <strong>
               {critMult.applies_to} {"<"} {critMult.idh_below.toFixed(3)}
             </strong>
@@ -342,6 +343,27 @@ function MetodologiaPage() {
         </div>
       </div>
 
+      {/* ── Agravante Social (Multiplicador de Criticidade) ── */}
+      <div className="mt-6 rounded-xl border border-orange-500/30 bg-orange-500/5 p-6 shadow-sm">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-orange-500" />
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">
+              Agravante Social — Multiplicador de Criticidade
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              O IDH (Índice de Desenvolvimento Humano) do setor censitário associado à obra{" "}
+              <strong>não faz parte do score base de 0 a 100</strong>. Em vez disso, ele atua como
+              um <strong>Agravante Social</strong>: quando o IDH é inferior a 0.600, a severidade e
+              criticidade dos alertas gerados para aquela obra são multiplicadas por{" "}
+              <strong>1.5×</strong>. Isso garante que obras em regiões de maior vulnerabilidade
+              social recebam atenção prioritária do gestor, sem distorcer o score técnico de
+              eficiência.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* ── Fórmulas Detalhadas por Pilar (via API) ── */}
       {rules?.formulas && Object.keys(rules.formulas).length > 0 && (
         <div className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -368,7 +390,7 @@ function MetodologiaPage() {
         </div>
       )}
 
-      {/* ── Regras Especiais (Multiplicador de Criticidade) ── */}
+      {/* ── Regras Especiais (Agravante Social) ── */}
       {rules?.criticality_multiplier && (
         <div className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm">
           <div className="flex items-center gap-2">
@@ -379,10 +401,11 @@ function MetodologiaPage() {
             <li>
               •{" "}
               <strong className="text-foreground">
-                Multiplicador de Criticidade ({critMult.multiplier}×):
+                Agravante Social ({critMult.multiplier}×):
               </strong>{" "}
-              Aplicado quando {critMult.applies_to} {"<"} {critMult.idh_below.toFixed(3)}, reduzindo
-              a tolerância e intensificando alertas em territórios de alta vulnerabilidade social.
+              Aplicado quando {critMult.applies_to} {"<"} {critMult.idh_below.toFixed(3)},
+              intensificando a criticidade dos alertas em territórios de alta vulnerabilidade
+              social. O IDH não altera o score base, apenas a severidade dos alertas.
             </li>
             <li>
               • <strong className="text-foreground">Teto de aditivos:</strong> Acúmulo de aditivos
@@ -478,9 +501,9 @@ function MetodologiaPage() {
                 "Conselho Regional de Engenharia. Infrações registradas penalizam o score.",
             },
             {
-              termo: "IDH",
+              termo: "IDH / Agravante Social",
               definicao:
-                "Índice de Desenvolvimento Humano. IDH baixo ativa o multiplicador de criticidade.",
+                "Índice de Desenvolvimento Humano. IDH baixo (< 0.600) ativa o Agravante Social, multiplicando a criticidade dos alertas por 1.5×. Não compõe o score base.",
             },
             {
               termo: "SINAPI",
@@ -488,9 +511,9 @@ function MetodologiaPage() {
                 "Sistema Nacional de Pesquisa de Custos e Índices da Construção Civil (referência de custo).",
             },
             {
-              termo: "Multiplicador de Criticidade",
+              termo: "Agravante Social",
               definicao:
-                "Fator que intensifica alertas em áreas de vulnerabilidade social (IDH < 0,600).",
+                "Fator que intensifica a criticidade dos alertas em áreas de vulnerabilidade social (IDH < 0,600). Não compõe o score base.",
             },
           ].map((g) => (
             <div
@@ -515,8 +538,6 @@ const descricoes: Record<string, string> = {
     "Penaliza aditivos acumulados acima de 25% sobre o valor original e considera infrações CREA registradas (leve, média, grave). Obras sem registro CREA regular também são penalizadas.",
   recurrence:
     "Identifica concentração suspeita de contratos no mesmo fornecedor ou bairro em um curto intervalo. Concentração elevada não é irregularidade, mas sinal de atenção.",
-  social:
-    "Pondera o impacto da obra sobre o IDH local e a vulnerabilidade socioeconômica da população beneficiada. Obras em áreas de maior vulnerabilidade recebem atenção reforçada.",
   ml_risk:
     "Probabilidade preditiva de risco calculada por modelo de Machine Learning, baseada em histórico de atrasos, sobrecustos e retrabalho. Resultado probabilístico, não determinístico.",
 };

@@ -21,6 +21,7 @@ import { getRiskLevel, getScoreHex } from "@/lib/score";
 import { fmtBRL, fmtBRLCompact } from "@/lib/format";
 import type { WorkRead } from "@/types";
 import type { GeoLayerData } from "@/components/argus/ArgusMap";
+import type { FlyToTarget } from "@/components/argus/ArgusMap";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,9 @@ const ArgusMap = lazy(() =>
 );
 const MapLegend = lazy(() =>
   import("@/components/argus/ArgusMap").then((m) => ({ default: m.MapLegend })),
+);
+const GeocodingSearchBar = lazy(() =>
+  import("@/components/argus/GeocodingSearchBar").then((m) => ({ default: m.GeocodingSearchBar })),
 );
 
 /* ========================================================================== */
@@ -131,6 +135,13 @@ function MapaPage() {
   const [fornecedorFilter, setFornecedorFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  /** Alvo de flyTo para busca geocodificada (Photon) */
+  const [flyToTarget, setFlyToTarget] = useState<FlyToTarget | undefined>(undefined);
+
+  /** Trata a seleção de uma sugestão geocodificada */
+  function handleGeocodingSelect(result: { lat: number; lng: number; name: string }) {
+    setFlyToTarget({ lat: result.lat, lng: result.lng, zoom: 16 });
+  }
 
   /* --- Queries ----------------------------------------------------------- */
   const works = useQuery({
@@ -291,6 +302,17 @@ function MapaPage() {
         </div>
       )}
 
+      {/* ── Busca geocodificada (Photon API) ──────────────────────────────── */}
+      <Suspense fallback={null}>
+        <GeocodingSearchBar
+          onSelect={handleGeocodingSelect}
+          variant="compact"
+          inputHeight="h-9"
+          placeholder="🔍 Buscar local no mapa..."
+          className="max-w-md"
+        />
+      </Suspense>
+
       {/* ── Filtros ────────────────────────────────────────────────────── */}
       <Card>
         <CardContent className="py-3">
@@ -408,7 +430,12 @@ function MapaPage() {
                 </div>
               }
             >
-              <ArgusMap works={filteredWorks} layers={geoLayers} height="520px" />
+              <ArgusMap
+                works={filteredWorks}
+                layers={geoLayers}
+                height="520px"
+                flyToTarget={flyToTarget}
+              />
             </Suspense>
           )}
         </div>
