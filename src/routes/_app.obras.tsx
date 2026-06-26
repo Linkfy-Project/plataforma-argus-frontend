@@ -198,7 +198,7 @@ function ObrasPage() {
     isError,
     refetch,
   } = useQuery({
-    queryKey: ["obras-all-extended"],
+    queryKey: ["works", "all"],
     queryFn: () => worksService.listAll({}),
     staleTime: 2 * 60_000,
   });

@@ -197,23 +197,19 @@ async function forward(request: Request, splat: string | undefined) {
       if (path === "/api/v1/analytics/trends") return json(trends(works));
     }
 
-    // Função auxiliar para fetch com retry em caso de 502/503 (cold start)
+    // Função auxiliar para fetch com retry em caso de 502/503
+    // Com UptimeRobot mantendo o backend acordado, cold start é raro — 1 retry basta.
     const fetchWithRetry = async (
       url: string,
       fetchInit: RequestInit,
-      maxRetries = 3,
+      maxRetries = 1,
     ): Promise<Response> => {
       let lastResponse: Response | null = null;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         const resp = await fetch(url, fetchInit);
-        // Só retry em 502/503 (cold start / hibernate-wake-error)
+        // Só retry em 502/503 (transient errors)
         if (resp.status !== 502 && resp.status !== 503) return resp;
         lastResponse = resp;
-        if (attempt < maxRetries) {
-          // Delay exponencial: 2s, 4s, 8s
-          const delay = Math.min(2000 * Math.pow(2, attempt), 10_000);
-          await new Promise((r) => setTimeout(r, delay));
-        }
       }
       return lastResponse!;
     };

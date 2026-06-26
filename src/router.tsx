@@ -15,9 +15,9 @@ export const getRouter = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        // Retry 3 vezes com delay exponencial para lidar com cold start do Render
-        retry: 3,
-        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30_000),
+        // Retry 2 vezes com delay exponencial (backend mantido acordado pelo UptimeRobot)
+        retry: 2,
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10_000),
         // Dados ficam "frescos" por 60s (não refetch)
         staleTime: 60_000,
         // Dados persistem no cache por 24 horas (gcTime substitui cacheTime no v5)
@@ -30,7 +30,8 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
-    defaultPreloadStaleTime: 0,
+    // Preload de rotas no hover considera dados "frescos" por 30s (evita refetch desnecessário)
+    defaultPreloadStaleTime: 30_000,
   });
 
   return router;

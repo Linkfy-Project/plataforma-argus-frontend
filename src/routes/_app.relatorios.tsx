@@ -663,8 +663,9 @@ function RelatoriosPage() {
   });
 
   const works = useQuery({
-    queryKey: ["works", "relatorios"],
+    queryKey: ["works", "all"],
     queryFn: () => worksService.listAll({}),
+    staleTime: 2 * 60_000,
   });
 
   /* ─── report-specific queries ─── */

@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   HardHat,
@@ -36,6 +36,7 @@ export const NAV_ITEMS = [
 
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const router = useRouter();
   return (
     <div className="flex h-full w-full flex-col bg-[color:var(--sidebar-deep)] text-[color:var(--sidebar-fg)]">
       <div className="flex h-16 items-center gap-2 border-b border-white/5 px-6">
@@ -56,6 +57,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             <Link
               key={item.to}
               to={item.to}
+              onMouseEnter={() => router.preloadRoute({ to: item.to })}
               onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",

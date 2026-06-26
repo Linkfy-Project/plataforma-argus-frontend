@@ -465,6 +465,17 @@ function DashboardPage() {
   const [modalObraId, setModalObraId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
+  /* ── Helper: fallback compartilhado para listAll ────────────────────────── */
+  // Se múltiplas queries precisam do fallback simultaneamente, ensureQueryData
+  // deduplica em uma única request (evita 5 downloads do mesmo dataset).
+  const FALLBACK_STALE = 5 * 60 * 1000;
+  const getWorksForFallback = () =>
+    queryClient.ensureQueryData({
+      queryKey: ["works", "all-macae"],
+      queryFn: () => worksService.listAll({ municipio: "macae" }),
+      staleTime: FALLBACK_STALE,
+    });
+
   /* ── Queries com fallback isolado ─────────────────────────────────────── */
 
   const summary = useQuery({
@@ -473,11 +484,11 @@ function DashboardPage() {
       try {
         return await dashboardService.executiveSummary("Macae");
       } catch {
-        const works = await worksService.listAll({ municipio: "macae" });
+        const works = await getWorksForFallback();
         return computeSummaryFromWorks(works);
       }
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: FALLBACK_STALE,
   });
 
   const priority = useQuery({
@@ -486,14 +497,14 @@ function DashboardPage() {
       try {
         const data = await dashboardService.priorityQueue("Macae", 10);
         if (Array.isArray(data) && data.length > 0) return data;
-        const works = await worksService.listAll({ municipio: "macae" });
+        const works = await getWorksForFallback();
         return computePriorityFromWorks(works);
       } catch {
-        const works = await worksService.listAll({ municipio: "macae" });
+        const works = await getWorksForFallback();
         return computePriorityFromWorks(works);
       }
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: FALLBACK_STALE,
   });
 
   const riskDist = useQuery({
@@ -502,14 +513,14 @@ function DashboardPage() {
       try {
         const data = await dashboardService.riskDistribution("Macae");
         if (Array.isArray(data) && data.length > 0) return data;
-        const works = await worksService.listAll({ municipio: "macae" });
+        const works = await getWorksForFallback();
         return computeRiskDistributionFromWorks(works);
       } catch {
-        const works = await worksService.listAll({ municipio: "macae" });
+        const works = await getWorksForFallback();
         return computeRiskDistributionFromWorks(works);
       }
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: FALLBACK_STALE,
   });
 
   const neighborhoods = useQuery({
@@ -521,14 +532,14 @@ function DashboardPage() {
           10,
         )) as unknown as NeighborhoodRiskItem[];
         if (Array.isArray(data) && data.length > 0) return data;
-        const works = await worksService.listAll({ municipio: "macae" });
+        const works = await getWorksForFallback();
         return computeNeighborhoodsFromWorks(works);
       } catch {
-        const works = await worksService.listAll({ municipio: "macae" });
+        const works = await getWorksForFallback();
         return computeNeighborhoodsFromWorks(works);
       }
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: FALLBACK_STALE,
   });
 
   const suppliers = useQuery({
@@ -540,14 +551,14 @@ function DashboardPage() {
           10,
         )) as unknown as SupplierRankingItem[];
         if (Array.isArray(data) && data.length > 0) return data;
-        const works = await worksService.listAll({ municipio: "macae" });
+        const works = await getWorksForFallback();
         return computeSuppliersFromWorks(works);
       } catch {
-        const works = await worksService.listAll({ municipio: "macae" });
+        const works = await getWorksForFallback();
         return computeSuppliersFromWorks(works);
       }
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: FALLBACK_STALE,
   });
 
   const etl = useQuery<SyncStatus>({
@@ -566,6 +577,7 @@ function DashboardPage() {
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["etl"] });
+    queryClient.invalidateQueries({ queryKey: ["works", "all-macae"] });
   };
 
   /* ── Estado de carregamento inicial ───────────────────────────────────── */

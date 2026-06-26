@@ -110,8 +110,8 @@ export const API_BASE_URL =
 
 export const USE_MOCK = String(import.meta.env.VITE_USE_MOCK ?? "").toLowerCase() === "true";
 
-/** Render free pode levar ~50s para acordar (cold start). */
-const COLD_START_TIMEOUT_MS = 90_000;
+/** Timeout de 30s — backend mantido acordado pelo UptimeRobot (cold start eliminado). */
+const COLD_START_TIMEOUT_MS = 30_000;
 
 const ROOT = API_BASE_URL.replace(/\/$/, "");
 const IS_ABSOLUTE = /^https?:\/\//i.test(ROOT);
