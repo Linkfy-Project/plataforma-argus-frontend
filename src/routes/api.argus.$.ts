@@ -222,6 +222,14 @@ async function forward(request: Request, splat: string | undefined) {
       if (v) headers.set(k, v);
     }
     for (const [k, v] of Object.entries(CORS)) headers.set(k, v);
+
+    // Cache dashboard/etl responses no browser por 2 minutos.
+    // Em conjunto com React Query staleTime (5min), evita refetches lentos via proxy.
+    // stale-while-revalidate serve dados do cache enquanto atualiza em background.
+    if (request.method === "GET" && /^\/api\/v1\/(dashboard|etl)\//.test(path)) {
+      headers.set("Cache-Control", "public, max-age=120, stale-while-revalidate=300");
+    }
+
     return new Response(upstream.body, { status: upstream.status, headers });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Upstream error";
