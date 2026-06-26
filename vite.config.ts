@@ -12,23 +12,21 @@ export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
   },
-  // Code splitting: separa vendors em chunks independentes para melhor cache do browser.
-  // Quando o código da app muda, apenas os chunks da app são re-baixados.
-  // Usa função (não objeto) para evitar erro no SSR build onde react/recharts são externalizados.
+  // Code splitting: separa apenas vendors NÃO deduplicados pelo wrapper.
+  // NÃO incluir react/react-dom/@tanstack/* — o wrapper já faz resolve.dedupe desses.
+  // Incluir react/tanstack no manualChunks causa React Error #418 (hydration mismatch)
+  // porque o SSR externaliza esses módulos mas o client build os coloca em chunks separados,
+  // resultando em diferentes instâncias do React entre server e client.
   vite: {
     build: {
       rollupOptions: {
         output: {
           manualChunks(id: string) {
             if (!id.includes("node_modules")) return;
-            if (id.includes("/react/") || id.includes("/react-dom/"))
-              return "vendor-react";
             if (id.includes("/recharts/") || id.includes("/d3-"))
               return "vendor-recharts";
             if (id.includes("/@radix-ui/")) return "vendor-radix";
             if (id.includes("/lucide-react/")) return "vendor-icons";
-            if (id.includes("/@tanstack/react-router/") || id.includes("/@tanstack/react-query/") || id.includes("/@tanstack/query-sync-storage-persister/") || id.includes("/@tanstack/react-query-persist-client/"))
-              return "vendor-tanstack";
           },
         },
       },
