@@ -63,11 +63,76 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /* ========================================================================== */
-/* Rota                                                                        */
+/* Rota — com SSR prefetch de dados do dashboard                               */
 /* ========================================================================== */
+
+const DASHBOARD_QK = {
+  summary: ["dashboard", "executive-summary"],
+  priority: ["dashboard", "priority-queue"],
+  risk: ["dashboard", "risk-distribution"],
+  hoods: ["dashboard", "top-neighborhoods-risk"],
+  suppliers: ["dashboard", "top-suppliers-risk"],
+  etl: ["etl", "sync-status"],
+} as const;
+
+const SSR_BACKEND =
+  (typeof process !== "undefined" && process.env?.ARGUS_BACKEND_URL) ||
+  "https://argus-backend-5bio.onrender.com";
+
+/** Busca dados do dashboard DIRETAMENTE do backend durante SSR. */
+async function prefetchDashboardData(ctx: { queryClient: import("@tanstack/react-query").QueryClient }) {
+  const BASE = `${SSR_BACKEND}/api/v1/dashboard`;
+  const MU = "Macae";
+  const STALE = 5 * 60 * 1000;
+  const TIMEOUT = 8_000;
+
+  const safeFetch = async (url: string) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
+    try {
+      const r = await fetch(url, { signal: ctrl.signal });
+      if (!r.ok) return null;
+      return await r.json();
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  const [summary, priority, risk, hoods, suppliers, etl] = await Promise.allSettled([
+    safeFetch(`${BASE}/summary?municipio=${MU}`),
+    safeFetch(`${BASE}/priority-queue?municipio=${MU}&limit=10`),
+    safeFetch(`${BASE}/risk-distribution?municipio=${MU}`),
+    safeFetch(`${BASE}/top-neighborhoods-risk?municipio=${MU}&limit=10`),
+    safeFetch(`${BASE}/top-suppliers-risk?municipio=${MU}&limit=10`),
+    safeFetch(`${SSR_BACKEND}/api/v1/etl/sync-status`),
+  ]);
+
+  const entries = [
+    [DASHBOARD_QK.summary, summary],
+    [DASHBOARD_QK.priority, priority],
+    [DASHBOARD_QK.risk, risk],
+    [DASHBOARD_QK.hoods, hoods],
+    [DASHBOARD_QK.suppliers, suppliers],
+    [DASHBOARD_QK.etl, etl],
+  ] as const;
+
+  for (const [qk, result] of entries) {
+    if (result.status === "fulfilled" && result.value != null) {
+      ctx.queryClient.setQueryData(qk, result.value, { updatedAt: Date.now() });
+    }
+  }
+}
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({ meta: [{ title: "Painel Executivo — ARGUS Macaé-RJ" }] }),
+  beforeLoad: async ({ context }) => {
+    // Só faz prefetch no SSR — no client, useQuery busca normalmente via proxy
+    if (import.meta.server) {
+      await prefetchDashboardData(context);
+    }
+  },
   component: DashboardPage,
 });
 
