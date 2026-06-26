@@ -223,10 +223,11 @@ async function forward(request: Request, splat: string | undefined) {
     }
     for (const [k, v] of Object.entries(CORS)) headers.set(k, v);
 
-    // Cache dashboard/etl responses no browser por 2 minutos.
+    // Cache dashboard/etl/territory/geo-layers responses no browser por 2 minutos.
     // Em conjunto com React Query staleTime (5min), evita refetches lentos via proxy.
     // stale-while-revalidate serve dados do cache enquanto atualiza em background.
-    if (request.method === "GET" && /^\/api\/v1\/(dashboard|etl)\//.test(path)) {
+    // Backend já tem cache in-memory (TTL 30min) — segundo request já vem em <10ms.
+    if (request.method === "GET" && /^\/api\/v1\/(dashboard|etl|territory|geo-layers)\//.test(path)) {
       headers.set("Cache-Control", "public, max-age=120, stale-while-revalidate=300");
     }
 
